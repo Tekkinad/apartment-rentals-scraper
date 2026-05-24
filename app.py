@@ -345,9 +345,50 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
             cards = page.locator(working_selector).all()
             log(f"Page {page_num}: {len(cards)} cards found")
 
+            # If we couldn't find a "X of Y" total earlier, use a fallback:
+            # assume ~30 per page and look for pagination info.
+            if page_num == 1 and total_pages == 1:
+                # Try to find pagination links to estimate total pages
+                try:
+                    page_links = page.locator(
+                        'a[href*="page-"], button[aria-label*="age"], nav a'
+                    ).all()
+                    max_page_found = 1
+                    for pl in page_links:
+                        try:
+                            href = pl.get_attribute("href") or ""
+                            m = re.search(r"page-(\d+)", href)
+                            if m:
+                                max_page_found = max(max_page_found, int(m.group(1)))
+                            txt = pl.inner_text(timeout=300).strip()
+                            if txt.isdigit():
+                                max_page_found = max(max_page_found, int(txt))
+                        except Exception:
+                            continue
+                    if max_page_found > 1:
+                        total_pages = max_page_found
+                        # We can estimate total = pages × cards-per-page
+                        update_job(job_id, total=max_page_found * len(cards))
+                        log(f"Detected {total_pages} total pages via pagination links")
+                    else:
+                        # No pagination found — single page of results
+                        update_job(job_id, total=len(cards))
+                except Exception:
+                    update_job(job_id, total=len(cards))
+
+            # DIAGNOSTIC: dump the first card's outer HTML so we can see
+            # what selectors will work. Only do this once per scrape.
+            if page_num == 1 and len(cards) > 0:
+                try:
+                    first_html = cards[0].evaluate("el => el.outerHTML")
+                    # Trim to first 2500 chars so it fits in logs
+                    snippet = first_html[:2500].replace("\n", " ")
+                    log(f"FIRST CARD HTML: {snippet}")
+                except Exception as e:
+                    log(f"Could not dump card HTML: {e}")
+
             # If the working selector matched an inner anchor (not the outer card),
             # we need to climb up to a card-like container so child queries work.
-            # We do this by checking the selector name.
             needs_climb = working_selector in (
                 'a[data-tid="pdp-link"]',
             )
@@ -482,6 +523,35 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                         except Exception:
                             pass
 
+                    if not lead["property_name"]:
+                        # Try card or anchor aria-label
+                        try:
+                            label = (card.get_attribute("aria-label") or "").strip()
+                            # aria-label is often "PropertyName, address" — take the first part
+                            if label:
+                                first_part = label.split(",")[0].strip()
+                                if first_part and len(first_part) > 2 and len(first_part) < 100:
+                                    lead["property_name"] = first_part
+                        except Exception:
+                            pass
+
+                    if not lead["property_name"]:
+                        # Try image alt text — often "Photo of PropertyName"
+                        try:
+                            img = card.locator("img").first
+                            if img.count() > 0:
+                                alt = img.get_attribute("alt") or ""
+                                alt = re.sub(
+                                    r"^(photo of |picture of |image of )",
+                                    "",
+                                    alt,
+                                    flags=re.IGNORECASE,
+                                ).strip()
+                                if alt and len(alt) > 2 and len(alt) < 100:
+                                    lead["property_name"] = alt
+                        except Exception:
+                            pass
+
                     # ── FALLBACK CHAIN for address ──
                     if not lead["address"]:
                         try:
@@ -531,8 +601,17 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                             ).first.inner_text(timeout=1000).strip()
                         except Exception:
                             pass
+                    # Fallback: regex on full card text for any $XXX pattern
+                    if not lead["price"]:
+                        try:
+                            card_text = card.inner_text(timeout=2000)
+                            m = re.search(r"\$[\d,]+(?:\+|\s*-\s*\$[\d,]+)?", card_text)
+                            if m:
+                                lead["price"] = m.group(0).strip()
+                        except Exception:
+                            pass
 
-                    # Phone (on the card — no per-listing visit needed)
+                    # Phone — try multiple known selectors then regex fallback
                     try:
                         phone_el = card.locator('div[data-tid="cta-phone"]').first
                         if phone_el.count() > 0:
@@ -540,6 +619,38 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                             lead["phone"] = format_phone(raw) if raw else ""
                     except Exception:
                         pass
+                    # Phone fallback 1: tel: href
+                    if not lead["phone"]:
+                        try:
+                            tel_el = card.locator('a[href^="tel:"]').first
+                            if tel_el.count() > 0:
+                                href = tel_el.get_attribute("href") or ""
+                                raw = href.replace("tel:", "").strip()
+                                if raw:
+                                    lead["phone"] = format_phone(raw)
+                        except Exception:
+                            pass
+                    # Phone fallback 2: regex on card text
+                    if not lead["phone"]:
+                        try:
+                            card_text = card.inner_text(timeout=2000)
+                            m = re.search(
+                                r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}",
+                                card_text,
+                            )
+                            if m:
+                                lead["phone"] = format_phone(m.group(0))
+                        except Exception:
+                            pass
+
+                    # Address fallback 2: aria-label on the card containing address-like text
+                    if not lead["address"]:
+                        try:
+                            label = (card.get_attribute("aria-label") or "").strip()
+                            if label and "," in label and re.search(r"\b[A-Z]{2}\b", label):
+                                lead["address"] = label
+                        except Exception:
+                            pass
 
                     seen_urls.add(lead["url"])
                     results.append(lead)
