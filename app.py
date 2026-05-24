@@ -196,12 +196,66 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                     raise
                 break
 
-            # Wait for cards. Rent.com uses li[data-tid^="srp_card_"].
+            # Wait for cards. Rent.com markup changes — try several known selectors.
             time.sleep(random.uniform(1.5, 2.5))
-            try:
-                page.wait_for_selector('li[data-tid^="srp_card_"]', timeout=12_000)
-            except Exception:
-                log(f"No cards on page {page_num} — stopping.")
+
+            # Multiple selectors Rent.com has used / may be using now
+            CARD_SELECTORS = [
+                'li[data-tid^="srp_card_"]',         # original
+                'div[data-tid^="srp_card_"]',        # if they switched tag
+                '[data-testid^="srp-card"]',         # alt naming
+                'article[data-tid*="card"]',         # tag-shift
+                'a[data-tid="pdp-link"]',            # the link inside every card
+                '[data-tid="listing-card"]',         # generic name
+                'div[data-component="ListingCard"]', # React component name
+            ]
+
+            working_selector = None
+            for sel in CARD_SELECTORS:
+                try:
+                    page.wait_for_selector(sel, timeout=4000)
+                    count = page.locator(sel).count()
+                    if count > 0:
+                        working_selector = sel
+                        log(f"Found {count} cards using selector: {sel}")
+                        break
+                except Exception:
+                    continue
+
+            if not working_selector:
+                # Diagnostic: figure out WHY there are no cards
+                try:
+                    title = page.title() or ""
+                    url_now = page.url
+                    body_sample = (page.inner_text("body")[:500] if page else "")[:500]
+
+                    # Check for explicit blocks
+                    block_terms = [
+                        "press & hold", "verify you are human", "captcha",
+                        "access denied", "blocked", "are you a robot",
+                        "checking your browser",
+                    ]
+                    body_lc = body_sample.lower()
+                    blocked = any(term in body_lc for term in block_terms)
+
+                    # Check for empty-results message
+                    empty_terms = ["no results", "no listings", "couldn't find", "0 results"]
+                    is_empty = any(term in body_lc for term in empty_terms)
+
+                    if blocked:
+                        log(f"BLOCKED by Rent.com (title='{title[:60]}'). May need to retry or use a different IP.")
+                        update_job(
+                            job_id,
+                            error=f"Rent.com blocked the request. Title: {title[:80]}",
+                        )
+                    elif is_empty:
+                        log(f"No listings match for {city}, {state} {beds}BR ≤ ${max_price}. Try raising max rent or different city.")
+                    else:
+                        # Capture a hint of what's actually on the page so we can debug
+                        log(f"Cards not found. Page title: '{title[:60]}'. URL: {url_now[:80]}")
+                        log(f"Page sample: {body_sample[:200]!r}")
+                except Exception as diag_err:
+                    log(f"Diagnostic failed: {diag_err}")
                 break
 
             # Determine total pages once, from page 1.
@@ -230,8 +284,15 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                 page.wait_for_timeout(random.randint(150, 280))
             page.wait_for_timeout(600)
 
-            cards = page.locator('li[data-tid^="srp_card_"]').all()
+            cards = page.locator(working_selector).all()
             log(f"Page {page_num}: {len(cards)} cards found")
+
+            # If the working selector matched an inner anchor (not the outer card),
+            # we need to climb up to a card-like container so child queries work.
+            # We do this by checking the selector name.
+            needs_climb = working_selector in (
+                'a[data-tid="pdp-link"]',
+            )
 
             for card in cards:
                 if check_pause_or_stop() == "stop":
@@ -253,12 +314,16 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                         "phone": "",
                     }
 
-                    # URL
+                    # URL — if we matched the pdp-link anchor directly, the card
+                    # IS the anchor; otherwise the anchor lives inside the card.
                     try:
-                        href = (
-                            card.locator('a[data-tid="pdp-link"]').first.get_attribute("href")
-                            or ""
-                        )
+                        if needs_climb:
+                            href = card.get_attribute("href") or ""
+                        else:
+                            href = (
+                                card.locator('a[data-tid="pdp-link"]').first.get_attribute("href")
+                                or ""
+                            )
                         lead["url"] = (
                             "https://www.rent.com" + href if href.startswith("/") else href
                         )
