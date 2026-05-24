@@ -99,38 +99,19 @@ def format_phone(raw):
     return raw
 
 
-def build_url_candidates(city, state, beds, max_price, page=1):
-    """Rent.com has changed URL formats over time. Return all known URL
-    patterns to try in order; the scraper will use whichever one returns
-    actual listing cards.
-
-    Known patterns seen in the wild:
-      /<state-full>/<city>-apartments          (older, may redirect now)
-      /<state-abbrev>/<city>                    (newer)
-      /apartments/<state-abbrev>/<city>         (alt newer)
+def build_url(city, state, beds, max_price, page=1):
+    """Build a Rent.com filtered search URL.
+    Page 1: /louisiana/baton-rouge-apartments?...
+    Page 2: /louisiana/baton-rouge-apartments/page-2?...
     """
-    state_full = STATE_SLUGS.get(state.upper(), state.lower().replace(" ", "-"))
-    state_ab = state.lower()
+    state_slug = STATE_SLUGS.get(state.upper(), state.lower().replace(" ", "-"))
     city_slug = city.lower().strip().replace(",", "").replace(" ", "-")
     bed_param = BED_PARAMS.get(int(beds), "1BR")
-    page_part_dash = f"/page-{page}" if page > 1 else ""
-    query = f"?min_price=0&max_price={int(max_price)}&bedrooms={bed_param}"
-
-    return [
-        # Newer format: state abbreviation, no "-apartments" suffix
-        f"https://www.rent.com/{state_ab}/{city_slug}{page_part_dash}{query}",
-        # Original format: state full name with "-apartments"
-        f"https://www.rent.com/{state_full}/{city_slug}-apartments{page_part_dash}{query}",
-        # Alternative: /apartments/ prefix
-        f"https://www.rent.com/apartments/{state_ab}/{city_slug}{page_part_dash}{query}",
-        # No "-apartments" with full state name
-        f"https://www.rent.com/{state_full}/{city_slug}{page_part_dash}{query}",
-    ]
-
-
-def build_url(city, state, beds, max_price, page=1):
-    """Backward-compatible single-URL builder (returns the first candidate)."""
-    return build_url_candidates(city, state, beds, max_price, page)[0]
+    page_part = f"/page-{page}" if page > 1 else ""
+    return (
+        f"https://www.rent.com/{state_slug}/{city_slug}-apartments{page_part}"
+        f"?min_price=0&max_price={int(max_price)}&bedrooms={bed_param}"
+    )
 
 
 # ---------- Scraper core ----------
@@ -197,7 +178,6 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
         seen_urls = set()
         page_num = 1
         total_pages = 1
-        url_pattern_idx = None  # which build_url_candidates index worked
 
         log("Opening Rent.com…")
 
@@ -206,114 +186,22 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                 log("Stopped by user.")
                 break
 
-            # Build candidate URLs for this page. On page 1 we try ALL patterns;
-            # on subsequent pages we use only the one that worked on page 1.
-            candidates = build_url_candidates(city, state, beds, max_price, page_num)
-            if url_pattern_idx is not None:
-                candidates = [candidates[url_pattern_idx]]
-
-            page_loaded_url = None
-            for idx, candidate_url in enumerate(candidates):
-                log(f"Page {page_num}: trying URL #{idx + 1}…")
-                try:
-                    page.goto(candidate_url, timeout=45_000, wait_until="domcontentloaded")
-                except Exception as e:
-                    log(f"  URL #{idx + 1} failed to load: {str(e)[:60]}")
-                    continue
-
-                # Did Rent.com redirect us off the city page to a state landing?
-                final_url = page.url
-                if final_url.rstrip("/") in (
-                    f"https://www.rent.com/{state.lower()}",
-                    f"https://www.rent.com/{STATE_SLUGS.get(state.upper(), '')}",
-                ):
-                    log(f"  URL #{idx + 1} redirected to state landing — bad city slug")
-                    continue
-                if final_url == "https://www.rent.com/" or final_url == "https://www.rent.com":
-                    log(f"  URL #{idx + 1} redirected to homepage")
-                    continue
-
-                # Looks promising — see if cards appear
-                page_loaded_url = candidate_url
+            url = build_url(city, state, beds, max_price, page_num)
+            log(f"Page {page_num}: loading…")
+            try:
+                page.goto(url, timeout=45_000, wait_until="domcontentloaded")
+            except Exception as e:
+                log(f"Page {page_num} failed to load: {str(e)[:80]}")
                 if page_num == 1:
-                    url_pattern_idx = idx
-                    log(f"  URL #{idx + 1} accepted: {final_url[:80]}")
+                    raise
                 break
 
-            if not page_loaded_url:
-                log(
-                    f"All URL patterns failed for {city}, {state.upper()}. "
-                    f"Rent.com may not list this city, or the URL format has changed again."
-                )
-                if page_num == 1:
-                    update_job(
-                        job_id,
-                        error=f"Could not find a working Rent.com URL for {city}, {state.upper()}. Try a bigger city name or check spelling.",
-                    )
-                break
-
-            url = page_loaded_url
-
-            # Wait for cards. Rent.com markup changes — try several known selectors.
-            time.sleep(random.uniform(1.5, 2.5))
-
-            # Multiple selectors Rent.com has used / may be using now
-            CARD_SELECTORS = [
-                'li[data-tid^="srp_card_"]',         # original
-                'div[data-tid^="srp_card_"]',        # if they switched tag
-                '[data-testid^="srp-card"]',         # alt naming
-                'article[data-tid*="card"]',         # tag-shift
-                'a[data-tid="pdp-link"]',            # the link inside every card
-                '[data-tid="listing-card"]',         # generic name
-                'div[data-component="ListingCard"]', # React component name
-            ]
-
-            working_selector = None
-            for sel in CARD_SELECTORS:
-                try:
-                    page.wait_for_selector(sel, timeout=4000)
-                    count = page.locator(sel).count()
-                    if count > 0:
-                        working_selector = sel
-                        log(f"Found {count} cards using selector: {sel}")
-                        break
-                except Exception:
-                    continue
-
-            if not working_selector:
-                # Diagnostic: figure out WHY there are no cards
-                try:
-                    title = page.title() or ""
-                    url_now = page.url
-                    body_sample = (page.inner_text("body")[:500] if page else "")[:500]
-
-                    # Check for explicit blocks
-                    block_terms = [
-                        "press & hold", "verify you are human", "captcha",
-                        "access denied", "blocked", "are you a robot",
-                        "checking your browser",
-                    ]
-                    body_lc = body_sample.lower()
-                    blocked = any(term in body_lc for term in block_terms)
-
-                    # Check for empty-results message
-                    empty_terms = ["no results", "no listings", "couldn't find", "0 results"]
-                    is_empty = any(term in body_lc for term in empty_terms)
-
-                    if blocked:
-                        log(f"BLOCKED by Rent.com (title='{title[:60]}'). May need to retry or use a different IP.")
-                        update_job(
-                            job_id,
-                            error=f"Rent.com blocked the request. Title: {title[:80]}",
-                        )
-                    elif is_empty:
-                        log(f"No listings match for {city}, {state} {beds}BR ≤ ${max_price}. Try raising max rent or different city.")
-                    else:
-                        # Capture a hint of what's actually on the page so we can debug
-                        log(f"Cards not found. Page title: '{title[:60]}'. URL: {url_now[:80]}")
-                        log(f"Page sample: {body_sample[:200]!r}")
-                except Exception as diag_err:
-                    log(f"Diagnostic failed: {diag_err}")
+            # Wait for cards. Rent.com uses li[data-tid^="srp_card_"].
+            time.sleep(random.uniform(2.5, 4.0))
+            try:
+                page.wait_for_selector('li[data-tid^="srp_card_"]', timeout=15_000)
+            except Exception:
+                log(f"No cards on page {page_num} — stopping.")
                 break
 
             # Determine total pages once, from page 1.
@@ -331,67 +219,18 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                     pass
 
             # Scroll the custom scroll container Rent.com uses (NOT window).
-            # 8 iterations is enough — all cards lazy-load within ~3 seconds.
             scroll_js = """
                 const c = document.querySelector('._e2885217');
                 if (c) c.scrollBy(0, ARG);
                 else window.scrollBy(0, ARG);
             """
-            for _ in range(8):
-                page.evaluate(scroll_js.replace("ARG", str(random.randint(400, 700))))
-                page.wait_for_timeout(random.randint(150, 280))
-            page.wait_for_timeout(600)
+            for _ in range(20):
+                page.evaluate(scroll_js.replace("ARG", str(random.randint(250, 450))))
+                page.wait_for_timeout(random.randint(200, 400))
+            page.wait_for_timeout(1200)
 
-            cards = page.locator(working_selector).all()
+            cards = page.locator('li[data-tid^="srp_card_"]').all()
             log(f"Page {page_num}: {len(cards)} cards found")
-
-            # If we couldn't find a "X of Y" total earlier, use a fallback:
-            # assume ~30 per page and look for pagination info.
-            if page_num == 1 and total_pages == 1:
-                # Try to find pagination links to estimate total pages
-                try:
-                    page_links = page.locator(
-                        'a[href*="page-"], button[aria-label*="age"], nav a'
-                    ).all()
-                    max_page_found = 1
-                    for pl in page_links:
-                        try:
-                            href = pl.get_attribute("href") or ""
-                            m = re.search(r"page-(\d+)", href)
-                            if m:
-                                max_page_found = max(max_page_found, int(m.group(1)))
-                            txt = pl.inner_text(timeout=300).strip()
-                            if txt.isdigit():
-                                max_page_found = max(max_page_found, int(txt))
-                        except Exception:
-                            continue
-                    if max_page_found > 1:
-                        total_pages = max_page_found
-                        # We can estimate total = pages × cards-per-page
-                        update_job(job_id, total=max_page_found * len(cards))
-                        log(f"Detected {total_pages} total pages via pagination links")
-                    else:
-                        # No pagination found — single page of results
-                        update_job(job_id, total=len(cards))
-                except Exception:
-                    update_job(job_id, total=len(cards))
-
-            # DIAGNOSTIC: dump the first card's outer HTML so we can see
-            # what selectors will work. Only do this once per scrape.
-            if page_num == 1 and len(cards) > 0:
-                try:
-                    first_html = cards[0].evaluate("el => el.outerHTML")
-                    # Trim to first 2500 chars so it fits in logs
-                    snippet = first_html[:2500].replace("\n", " ")
-                    log(f"FIRST CARD HTML: {snippet}")
-                except Exception as e:
-                    log(f"Could not dump card HTML: {e}")
-
-            # If the working selector matched an inner anchor (not the outer card),
-            # we need to climb up to a card-like container so child queries work.
-            needs_climb = working_selector in (
-                'a[data-tid="pdp-link"]',
-            )
 
             for card in cards:
                 if check_pause_or_stop() == "stop":
@@ -413,16 +252,12 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                         "phone": "",
                     }
 
-                    # URL — if we matched the pdp-link anchor directly, the card
-                    # IS the anchor; otherwise the anchor lives inside the card.
+                    # URL
                     try:
-                        if needs_climb:
-                            href = card.get_attribute("href") or ""
-                        else:
-                            href = (
-                                card.locator('a[data-tid="pdp-link"]').first.get_attribute("href")
-                                or ""
-                            )
+                        href = (
+                            card.locator('a[data-tid="pdp-link"]').first.get_attribute("href")
+                            or ""
+                        )
                         lead["url"] = (
                             "https://www.rent.com" + href if href.startswith("/") else href
                         )
@@ -432,145 +267,68 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                     if not lead["url"] or lead["url"] in seen_urls:
                         continue
 
-                    # ── PRIMARY EXTRACTION: JSON-LD structured data ──
-                    # Rent.com embeds <script type="application/ld+json"> in each
-                    # card for Google's SEO. This is the most reliable source —
-                    # it won't change with their CSS class names.
-                    json_ld_data = None
+                    # Property name — try the known selector first, then fallbacks.
+                    # Rent.com uses auto-generated class names (._01ccfad3) that
+                    # can change. The card title is consistently the first <p>
+                    # inside an anchor with data-tid="pdp-link".
                     try:
-                        scripts = card.locator(
-                            'script[type="application/ld+json"]'
-                        ).all()
-                        for s in scripts:
-                            try:
-                                import json as _json
-                                txt = s.inner_text(timeout=600).strip()
-                                if not txt:
-                                    txt = s.evaluate("el => el.textContent") or ""
-                                parsed = _json.loads(txt)
-                                if isinstance(parsed, list):
-                                    parsed = parsed[0] if parsed else {}
-                                if isinstance(parsed, dict):
-                                    json_ld_data = parsed
-                                    break
-                            except Exception:
-                                continue
+                        lead["property_name"] = card.locator(
+                            'p._01ccfad3'
+                        ).first.inner_text(timeout=800).strip()
                     except Exception:
                         pass
 
-                    if json_ld_data:
-                        # Pull name from JSON-LD
-                        if not lead["property_name"]:
-                            n = json_ld_data.get("name", "")
-                            if n:
-                                lead["property_name"] = str(n).strip()
-
-                        # Pull address from JSON-LD — it's often a nested object
-                        addr_obj = json_ld_data.get("address", {})
-                        if isinstance(addr_obj, dict):
-                            parts = [
-                                addr_obj.get("streetAddress", ""),
-                                addr_obj.get("addressLocality", ""),
-                                addr_obj.get("addressRegion", ""),
-                                addr_obj.get("postalCode", ""),
-                            ]
-                            assembled = ", ".join(p for p in parts if p)
-                            if assembled:
-                                lead["address"] = assembled
-                        elif isinstance(addr_obj, str) and addr_obj:
-                            lead["address"] = addr_obj
-
-                    # ── FALLBACK CHAIN for property name ──
                     if not lead["property_name"]:
-                        try:
-                            lead["property_name"] = card.locator(
-                                'p._01ccfad3'
-                            ).first.inner_text(timeout=600).strip()
-                        except Exception:
-                            pass
-
-                    if not lead["property_name"]:
-                        # Card title is consistently the first <p> inside the pdp-link
+                        # Fallback 1: first <p> inside the pdp-link anchor
                         try:
                             lead["property_name"] = card.locator(
                                 'a[data-tid="pdp-link"] p'
-                            ).first.inner_text(timeout=600).strip()
+                            ).first.inner_text(timeout=800).strip()
                         except Exception:
                             pass
 
                     if not lead["property_name"]:
-                        # Any heading tag
-                        for tag in ("h2", "h3", "h4"):
-                            try:
+                        # Fallback 2: any h-tag inside the card
+                        try:
+                            for tag in ("h2", "h3", "h4"):
                                 el = card.locator(tag).first
                                 if el.count() > 0:
-                                    candidate = el.inner_text(timeout=500).strip()
+                                    candidate = el.inner_text(timeout=600).strip()
                                     if candidate and len(candidate) > 2:
                                         lead["property_name"] = candidate
                                         break
+                        except Exception:
+                            pass
+
+                    if not lead["property_name"]:
+                        # Fallback 3: use the first segment of the address as the name
+                        # (better than blank — "7880 Triangle Promenade Dr")
+                        try:
+                            addr = lead.get("address", "")
+                            if addr and "," in addr:
+                                lead["property_name"] = addr.split(",")[0].strip()
+                        except Exception:
+                            pass
+
+                    # Address — sits in a sibling p element under the property name.
+                    # Fallback: any p in the card that contains a comma + state-like pattern.
+                    try:
+                        ps = card.locator("p").all()
+                        for el in ps:
+                            try:
+                                t = el.inner_text(timeout=600).strip()
                             except Exception:
                                 continue
-
-                    if not lead["property_name"]:
-                        # Last resort: extract from the URL slug
-                        # e.g. /apartments/raleigh-nc/the-timbers/ -> "The Timbers"
-                        try:
-                            m = re.search(r"/apartments/[^/]+/([^/?]+)", lead["url"])
-                            if m:
-                                slug = m.group(1).replace("-", " ").strip()
-                                if slug:
-                                    lead["property_name"] = slug.title()
-                        except Exception:
-                            pass
-
-                    if not lead["property_name"]:
-                        # Try card or anchor aria-label
-                        try:
-                            label = (card.get_attribute("aria-label") or "").strip()
-                            # aria-label is often "PropertyName, address" — take the first part
-                            if label:
-                                first_part = label.split(",")[0].strip()
-                                if first_part and len(first_part) > 2 and len(first_part) < 100:
-                                    lead["property_name"] = first_part
-                        except Exception:
-                            pass
-
-                    if not lead["property_name"]:
-                        # Try image alt text — often "Photo of PropertyName"
-                        try:
-                            img = card.locator("img").first
-                            if img.count() > 0:
-                                alt = img.get_attribute("alt") or ""
-                                alt = re.sub(
-                                    r"^(photo of |picture of |image of )",
-                                    "",
-                                    alt,
-                                    flags=re.IGNORECASE,
-                                ).strip()
-                                if alt and len(alt) > 2 and len(alt) < 100:
-                                    lead["property_name"] = alt
-                        except Exception:
-                            pass
-
-                    # ── FALLBACK CHAIN for address ──
-                    if not lead["address"]:
-                        try:
-                            ps = card.locator("p").all()
-                            for el in ps:
-                                try:
-                                    t = el.inner_text(timeout=400).strip()
-                                except Exception:
-                                    continue
-                                if (
-                                    t
-                                    and t != lead["property_name"]
-                                    and "," in t
-                                    and re.search(r"\b[A-Z]{2}\b", t)
-                                ):
-                                    lead["address"] = t
-                                    break
-                        except Exception:
-                            pass
+                            if (
+                                t
+                                and t != lead["property_name"]
+                                and "," in t
+                                and re.search(r"\b[A-Z]{2}\b", t)
+                            ):
+                                lead["address"] = t
+                                break
+                    except Exception:
+                        pass
 
                     # Price — first try the per-bed row matching our bed count
                     try:
@@ -601,17 +359,8 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                             ).first.inner_text(timeout=1000).strip()
                         except Exception:
                             pass
-                    # Fallback: regex on full card text for any $XXX pattern
-                    if not lead["price"]:
-                        try:
-                            card_text = card.inner_text(timeout=2000)
-                            m = re.search(r"\$[\d,]+(?:\+|\s*-\s*\$[\d,]+)?", card_text)
-                            if m:
-                                lead["price"] = m.group(0).strip()
-                        except Exception:
-                            pass
 
-                    # Phone — try multiple known selectors then regex fallback
+                    # Phone (on the card — no per-listing visit needed)
                     try:
                         phone_el = card.locator('div[data-tid="cta-phone"]').first
                         if phone_el.count() > 0:
@@ -619,38 +368,6 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                             lead["phone"] = format_phone(raw) if raw else ""
                     except Exception:
                         pass
-                    # Phone fallback 1: tel: href
-                    if not lead["phone"]:
-                        try:
-                            tel_el = card.locator('a[href^="tel:"]').first
-                            if tel_el.count() > 0:
-                                href = tel_el.get_attribute("href") or ""
-                                raw = href.replace("tel:", "").strip()
-                                if raw:
-                                    lead["phone"] = format_phone(raw)
-                        except Exception:
-                            pass
-                    # Phone fallback 2: regex on card text
-                    if not lead["phone"]:
-                        try:
-                            card_text = card.inner_text(timeout=2000)
-                            m = re.search(
-                                r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}",
-                                card_text,
-                            )
-                            if m:
-                                lead["phone"] = format_phone(m.group(0))
-                        except Exception:
-                            pass
-
-                    # Address fallback 2: aria-label on the card containing address-like text
-                    if not lead["address"]:
-                        try:
-                            label = (card.get_attribute("aria-label") or "").strip()
-                            if label and "," in label and re.search(r"\b[A-Z]{2}\b", label):
-                                lead["address"] = label
-                        except Exception:
-                            pass
 
                     seen_urls.add(lead["url"])
                     results.append(lead)
@@ -671,7 +388,7 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                 break
 
             page_num += 1
-            delay = random.uniform(3, 5)
+            delay = random.uniform(6, 10)
             log(f"Waiting {delay:.0f}s before page {page_num}…")
             time.sleep(delay)
 
