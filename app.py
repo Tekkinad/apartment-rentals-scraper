@@ -5,12 +5,6 @@ User picks any US city, max price, and bed count. Backend hits Rent.com's
 direct filtered URL (no clicking / form filling needed — Rent.com supports
 filters as URL params). Phone number is on the card itself, no per-listing
 visits needed.
-
-Compared to the original `rent_scraper.py`:
-  - Removes CDP dependency (real Chrome) so it can deploy headless on Render
-  - Removes hardcoded MARKETS dict — user supplies city + state per request
-  - Removes per-city CSV — results live in-memory and download on demand
-  - Adds pause/resume/stop controls (battle-tested pattern from Maps Scout)
 """
 
 import csv
@@ -36,8 +30,6 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 
-# Rent.com uses lowercase state names in URLs (e.g. "north-carolina").
-# This map handles the cases where the slug isn't a simple lowercase.
 STATE_SLUGS = {
     "AL": "alabama", "AK": "alaska", "AZ": "arizona", "AR": "arkansas",
     "CA": "california", "CO": "colorado", "CT": "connecticut", "DE": "delaware",
@@ -56,8 +48,6 @@ STATE_SLUGS = {
 
 BED_PARAMS = {1: "1BR", 2: "2BR", 3: "3BR", 4: "4BR"}
 
-
-# ---------- Job helpers ----------
 
 def make_job(query_label):
     job_id = uuid.uuid4().hex[:8]
@@ -100,10 +90,6 @@ def format_phone(raw):
 
 
 def build_url(city, state, beds, max_price, page=1):
-    """Build a Rent.com filtered search URL.
-    Page 1: /louisiana/baton-rouge-apartments?...
-    Page 2: /louisiana/baton-rouge-apartments/page-2?...
-    """
     state_slug = STATE_SLUGS.get(state.upper(), state.lower().replace(" ", "-"))
     city_slug = city.lower().strip().replace(",", "").replace(" ", "-")
     bed_param = BED_PARAMS.get(int(beds), "1BR")
@@ -114,10 +100,7 @@ def build_url(city, state, beds, max_price, page=1):
     )
 
 
-# ---------- Scraper core ----------
-
 def scrape_rent(job_id, city, state, beds, max_price, max_pages=None):
-    """Wrapper that catches crashes and writes them to the job."""
     try:
         _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages)
     except Exception as e:
@@ -137,7 +120,6 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
         print(f"[{job_id}] {msg}")
 
     def check_pause_or_stop():
-        """Return 'stop' to break out, 'continue' to keep going."""
         j = get_job(job_id) or {}
         if j.get("stopped"):
             return "stop"
@@ -164,7 +146,6 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
             viewport={"width": 1280, "height": 900},
             locale="en-US",
         )
-        # Block heavy assets to save RAM on Render free tier.
         context.route(
             "**/*",
             lambda route: route.abort()
@@ -196,15 +177,14 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                     raise
                 break
 
-            # Wait for cards. Rent.com uses li[data-tid^="srp_card_"].
-            time.sleep(random.uniform(2.5, 4.0))
+            # ── SPEED FIX #1: post-load wait 2.5-4s → 1.2-2.0s ──
+            time.sleep(random.uniform(1.2, 2.0))
             try:
                 page.wait_for_selector('li[data-tid^="srp_card_"]', timeout=15_000)
             except Exception:
                 log(f"No cards on page {page_num} — stopping.")
                 break
 
-            # Determine total pages once, from page 1.
             if page_num == 1:
                 try:
                     body_text = page.inner_text("body")
@@ -218,16 +198,16 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                 except Exception:
                     pass
 
-            # Scroll the custom scroll container Rent.com uses (NOT window).
+            # ── SPEED FIX #2: 20 scroll iterations → 10 with bigger jumps ──
             scroll_js = """
                 const c = document.querySelector('._e2885217');
                 if (c) c.scrollBy(0, ARG);
                 else window.scrollBy(0, ARG);
             """
-            for _ in range(20):
-                page.evaluate(scroll_js.replace("ARG", str(random.randint(250, 450))))
-                page.wait_for_timeout(random.randint(200, 400))
-            page.wait_for_timeout(1200)
+            for _ in range(10):
+                page.evaluate(scroll_js.replace("ARG", str(random.randint(400, 700))))
+                page.wait_for_timeout(random.randint(150, 280))
+            page.wait_for_timeout(800)
 
             cards = page.locator('li[data-tid^="srp_card_"]').all()
             log(f"Page {page_num}: {len(cards)} cards found")
@@ -267,10 +247,7 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                     if not lead["url"] or lead["url"] in seen_urls:
                         continue
 
-                    # Property name — try the known selector first, then fallbacks.
-                    # Rent.com uses auto-generated class names (._01ccfad3) that
-                    # can change. The card title is consistently the first <p>
-                    # inside an anchor with data-tid="pdp-link".
+                    # Property name (unchanged - your working logic)
                     try:
                         lead["property_name"] = card.locator(
                             'p._01ccfad3'
@@ -279,7 +256,6 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                         pass
 
                     if not lead["property_name"]:
-                        # Fallback 1: first <p> inside the pdp-link anchor
                         try:
                             lead["property_name"] = card.locator(
                                 'a[data-tid="pdp-link"] p'
@@ -288,7 +264,6 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                             pass
 
                     if not lead["property_name"]:
-                        # Fallback 2: any h-tag inside the card
                         try:
                             for tag in ("h2", "h3", "h4"):
                                 el = card.locator(tag).first
@@ -301,8 +276,6 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                             pass
 
                     if not lead["property_name"]:
-                        # Fallback 3: use the first segment of the address as the name
-                        # (better than blank — "7880 Triangle Promenade Dr")
                         try:
                             addr = lead.get("address", "")
                             if addr and "," in addr:
@@ -310,27 +283,62 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                         except Exception:
                             pass
 
-                    # Address — sits in a sibling p element under the property name.
-                    # Fallback: any p in the card that contains a comma + state-like pattern.
+                    # ── ADDRESS FIX: multi-strategy, pick the best candidate ──
+                    address_candidates = []
+
+                    # Strategy A: all <p> elements with comma + 2-letter state + digit
                     try:
                         ps = card.locator("p").all()
                         for el in ps:
                             try:
-                                t = el.inner_text(timeout=600).strip()
+                                t = el.inner_text(timeout=1200).strip()
                             except Exception:
                                 continue
-                            if (
-                                t
-                                and t != lead["property_name"]
-                                and "," in t
-                                and re.search(r"\b[A-Z]{2}\b", t)
-                            ):
-                                lead["address"] = t
-                                break
+                            if not t or t == lead["property_name"]:
+                                continue
+                            if "," in t and re.search(r"\b[A-Z]{2}\b", t) and re.search(r"\d", t):
+                                address_candidates.append(t)
                     except Exception:
                         pass
 
-                    # Price — first try the per-bed row matching our bed count
+                    # Strategy B: regex on full card text for address pattern
+                    if not address_candidates:
+                        try:
+                            full_text = card.inner_text(timeout=2000)
+                            matches = re.findall(
+                                r"\d{1,6}\s+[A-Za-z][^\n,]{2,60},\s*[A-Za-z][A-Za-z\s]{2,30},?\s*[A-Z]{2}\s*\d{5}",
+                                full_text,
+                            )
+                            address_candidates.extend(matches)
+                            if not address_candidates:
+                                looser = re.findall(
+                                    r"[A-Za-z0-9][^\n]{5,80}?,\s*[A-Za-z\s]{2,30},\s*[A-Z]{2}\s*\d{5}",
+                                    full_text,
+                                )
+                                address_candidates.extend(looser)
+                        except Exception:
+                            pass
+
+                    # Strategy C: card aria-label after first comma
+                    if not address_candidates:
+                        try:
+                            label = (card.get_attribute("aria-label") or "").strip()
+                            if label and "," in label and re.search(r"\b[A-Z]{2}\b", label):
+                                parts = label.split(",", 1)
+                                if len(parts) > 1:
+                                    address_candidates.append(parts[1].strip())
+                        except Exception:
+                            pass
+
+                    # Pick the best: longest candidate with digits
+                    if address_candidates:
+                        best = max(
+                            address_candidates,
+                            key=lambda a: (1 if re.search(r"\d", a) else 0, len(a)),
+                        )
+                        lead["address"] = best
+
+                    # Price (unchanged)
                     try:
                         bed_label = {1: "1 bd", 2: "2 bd", 3: "3 bd", 4: "4 bd"}.get(
                             int(beds), ""
@@ -360,7 +368,7 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                         except Exception:
                             pass
 
-                    # Phone (on the card — no per-listing visit needed)
+                    # Phone (unchanged)
                     try:
                         phone_el = card.locator('div[data-tid="cta-phone"]').first
                         if phone_el.count() > 0:
@@ -379,7 +387,6 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                     print(f"  card error: {e}")
                     continue
 
-            # Pagination
             if max_pages and page_num >= max_pages:
                 log(f"Reached page limit ({max_pages}).")
                 break
@@ -388,7 +395,8 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                 break
 
             page_num += 1
-            delay = random.uniform(6, 10)
+            # ── SPEED FIX #3: inter-page delay 6-10s → 2.5-4s ──
+            delay = random.uniform(2.5, 4.0)
             log(f"Waiting {delay:.0f}s before page {page_num}…")
             time.sleep(delay)
 
@@ -402,8 +410,6 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
         )
         update_job(job_id, status="done", stage=final_msg, results=results)
 
-
-# ---------- Routes ----------
 
 @app.route("/")
 def index():
@@ -437,7 +443,6 @@ def api_scrape():
         except (TypeError, ValueError):
             max_pages = None
 
-        # Reject if a scrape is already running (free tier can only fit one Chromium)
         with JOBS_LOCK:
             running = [
                 j for j in JOBS.values()
@@ -499,9 +504,6 @@ def api_export(job_id):
         return jsonify({"error": "not found"}), 404
 
     rows = job.get("results", [])
-
-    # If the user has been swiping and only wants their saved set,
-    # the frontend sends ?only=url1,url2,url3
     only_param = request.args.get("only", "").strip()
     if only_param:
         only = set(u for u in only_param.split(",") if u)
