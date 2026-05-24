@@ -99,19 +99,38 @@ def format_phone(raw):
     return raw
 
 
-def build_url(city, state, beds, max_price, page=1):
-    """Build a Rent.com filtered search URL.
-    Page 1: /louisiana/baton-rouge-apartments?...
-    Page 2: /louisiana/baton-rouge-apartments/page-2?...
+def build_url_candidates(city, state, beds, max_price, page=1):
+    """Rent.com has changed URL formats over time. Return all known URL
+    patterns to try in order; the scraper will use whichever one returns
+    actual listing cards.
+
+    Known patterns seen in the wild:
+      /<state-full>/<city>-apartments          (older, may redirect now)
+      /<state-abbrev>/<city>                    (newer)
+      /apartments/<state-abbrev>/<city>         (alt newer)
     """
-    state_slug = STATE_SLUGS.get(state.upper(), state.lower().replace(" ", "-"))
+    state_full = STATE_SLUGS.get(state.upper(), state.lower().replace(" ", "-"))
+    state_ab = state.lower()
     city_slug = city.lower().strip().replace(",", "").replace(" ", "-")
     bed_param = BED_PARAMS.get(int(beds), "1BR")
-    page_part = f"/page-{page}" if page > 1 else ""
-    return (
-        f"https://www.rent.com/{state_slug}/{city_slug}-apartments{page_part}"
-        f"?min_price=0&max_price={int(max_price)}&bedrooms={bed_param}"
-    )
+    page_part_dash = f"/page-{page}" if page > 1 else ""
+    query = f"?min_price=0&max_price={int(max_price)}&bedrooms={bed_param}"
+
+    return [
+        # Newer format: state abbreviation, no "-apartments" suffix
+        f"https://www.rent.com/{state_ab}/{city_slug}{page_part_dash}{query}",
+        # Original format: state full name with "-apartments"
+        f"https://www.rent.com/{state_full}/{city_slug}-apartments{page_part_dash}{query}",
+        # Alternative: /apartments/ prefix
+        f"https://www.rent.com/apartments/{state_ab}/{city_slug}{page_part_dash}{query}",
+        # No "-apartments" with full state name
+        f"https://www.rent.com/{state_full}/{city_slug}{page_part_dash}{query}",
+    ]
+
+
+def build_url(city, state, beds, max_price, page=1):
+    """Backward-compatible single-URL builder (returns the first candidate)."""
+    return build_url_candidates(city, state, beds, max_price, page)[0]
 
 
 # ---------- Scraper core ----------
@@ -178,6 +197,7 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
         seen_urls = set()
         page_num = 1
         total_pages = 1
+        url_pattern_idx = None  # which build_url_candidates index worked
 
         log("Opening Rent.com…")
 
@@ -186,15 +206,53 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                 log("Stopped by user.")
                 break
 
-            url = build_url(city, state, beds, max_price, page_num)
-            log(f"Page {page_num}: loading…")
-            try:
-                page.goto(url, timeout=45_000, wait_until="domcontentloaded")
-            except Exception as e:
-                log(f"Page {page_num} failed to load: {str(e)[:80]}")
+            # Build candidate URLs for this page. On page 1 we try ALL patterns;
+            # on subsequent pages we use only the one that worked on page 1.
+            candidates = build_url_candidates(city, state, beds, max_price, page_num)
+            if url_pattern_idx is not None:
+                candidates = [candidates[url_pattern_idx]]
+
+            page_loaded_url = None
+            for idx, candidate_url in enumerate(candidates):
+                log(f"Page {page_num}: trying URL #{idx + 1}…")
+                try:
+                    page.goto(candidate_url, timeout=45_000, wait_until="domcontentloaded")
+                except Exception as e:
+                    log(f"  URL #{idx + 1} failed to load: {str(e)[:60]}")
+                    continue
+
+                # Did Rent.com redirect us off the city page to a state landing?
+                final_url = page.url
+                if final_url.rstrip("/") in (
+                    f"https://www.rent.com/{state.lower()}",
+                    f"https://www.rent.com/{STATE_SLUGS.get(state.upper(), '')}",
+                ):
+                    log(f"  URL #{idx + 1} redirected to state landing — bad city slug")
+                    continue
+                if final_url == "https://www.rent.com/" or final_url == "https://www.rent.com":
+                    log(f"  URL #{idx + 1} redirected to homepage")
+                    continue
+
+                # Looks promising — see if cards appear
+                page_loaded_url = candidate_url
                 if page_num == 1:
-                    raise
+                    url_pattern_idx = idx
+                    log(f"  URL #{idx + 1} accepted: {final_url[:80]}")
                 break
+
+            if not page_loaded_url:
+                log(
+                    f"All URL patterns failed for {city}, {state.upper()}. "
+                    f"Rent.com may not list this city, or the URL format has changed again."
+                )
+                if page_num == 1:
+                    update_job(
+                        job_id,
+                        error=f"Could not find a working Rent.com URL for {city}, {state.upper()}. Try a bigger city name or check spelling.",
+                    )
+                break
+
+            url = page_loaded_url
 
             # Wait for cards. Rent.com markup changes — try several known selectors.
             time.sleep(random.uniform(1.5, 2.5))
