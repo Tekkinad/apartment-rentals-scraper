@@ -177,8 +177,9 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                     raise
                 break
 
-            # ── SPEED FIX #1: post-load wait 2.5-4s → 1.2-2.0s ──
-            time.sleep(random.uniform(1.2, 2.0))
+            # Wait for cards. Rent.com uses li[data-tid^="srp_card_"].
+            # Using original 2.5-4s delay — Render's free tier needs the time.
+            time.sleep(random.uniform(2.5, 4.0))
             try:
                 page.wait_for_selector('li[data-tid^="srp_card_"]', timeout=15_000)
             except Exception:
@@ -198,16 +199,16 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                 except Exception:
                     pass
 
-            # ── SPEED FIX #2: 20 scroll iterations → 10 with bigger jumps ──
+            # Scroll the custom scroll container (your original working logic).
             scroll_js = """
                 const c = document.querySelector('._e2885217');
                 if (c) c.scrollBy(0, ARG);
                 else window.scrollBy(0, ARG);
             """
-            for _ in range(10):
-                page.evaluate(scroll_js.replace("ARG", str(random.randint(400, 700))))
-                page.wait_for_timeout(random.randint(150, 280))
-            page.wait_for_timeout(800)
+            for _ in range(20):
+                page.evaluate(scroll_js.replace("ARG", str(random.randint(250, 450))))
+                page.wait_for_timeout(random.randint(200, 400))
+            page.wait_for_timeout(1200)
 
             cards = page.locator('li[data-tid^="srp_card_"]').all()
             log(f"Page {page_num}: {len(cards)} cards found")
@@ -395,8 +396,8 @@ def _scrape_rent_inner(job_id, city, state, beds, max_price, max_pages):
                 break
 
             page_num += 1
-            # ── SPEED FIX #3: inter-page delay 6-10s → 2.5-4s ──
-            delay = random.uniform(2.5, 4.0)
+            # Original 6-10s delay — slower but reliable on Render free tier.
+            delay = random.uniform(6, 10)
             log(f"Waiting {delay:.0f}s before page {page_num}…")
             time.sleep(delay)
 
