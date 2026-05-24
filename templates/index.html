@@ -14,7 +14,6 @@
 
 <style>
   :root {
-    /* oxblood / cinder / orange — aggressive sales tool */
     --ink:        #0e0303;
     --ink-2:      #1a0808;
     --surface:    #2a0e0a;
@@ -24,7 +23,7 @@
     --text:       #fff5ed;
     --text-2:     #c9a59c;
     --text-3:     #8a615a;
-    --accent:     #ff4d2e;     /* signature orange-red */
+    --accent:     #ff4d2e;
     --accent-hot: #ff6a3d;
     --accent-ink: #1a0606;
     --positive:   #ffb347;
@@ -46,7 +45,6 @@
     letter-spacing: -0.005em;
   }
 
-  /* ── Stage ─────────────────────────────────────────── */
   .stage {
     width: 100vw; height: 100vh; height: 100dvh;
     display: grid; place-items: center;
@@ -85,10 +83,6 @@
     }
   }
 
-  /* ── Status bar ─────────────────────────────────────── */
-  /* On mobile (Add to Home Screen / standalone), the device's real
-     status bar (battery, signal) sits on top of our content. Use the
-     env() safe-area inset to push our fake status bar below it. */
   .statusbar {
     height: 44px; flex: 0 0 auto;
     min-height: calc(44px + env(safe-area-inset-top, 0px));
@@ -98,14 +92,11 @@
     font-family: "JetBrains Mono", monospace;
     font-size: 11px; font-weight: 500;
   }
-  /* When running standalone (Add to Home), hide our fake status bar entirely —
-     the device shows its real one anyway, no need to duplicate it. */
   @media all and (display-mode: standalone) {
     .statusbar { display: none; }
     .header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
   }
 
-  /* ── Header bar — brand + segmented control ─────────── */
   .header {
     padding: 8px 20px 12px;
     border-bottom: 1px solid var(--hairline);
@@ -141,10 +132,10 @@
     letter-spacing: 0.05em;
   }
 
-  /* Segmented control — Hunt / Stack */
+  /* ── CHANGED: 3 columns instead of 2 ── */
   .segmented {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     background: var(--ink);
     border: 1px solid var(--hairline);
     padding: 3px;
@@ -154,23 +145,20 @@
     background: transparent;
     border: 0;
     color: var(--text-2);
-    padding: 9px 12px;
+    padding: 9px 8px;
     cursor: pointer;
     font-family: "Bricolage Grotesque", sans-serif;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;
     transition: all 0.15s;
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
   }
-  .seg.active {
-    background: var(--accent);
-    color: var(--accent-ink);
-  }
+  .seg.active { background: var(--accent); color: var(--accent-ink); }
   .seg .badge {
     background: rgba(0,0,0,0.25);
-    padding: 2px 7px;
+    padding: 2px 6px;
     font-family: "JetBrains Mono", monospace;
     font-size: 10px;
     font-weight: 700;
@@ -178,7 +166,6 @@
   .seg.active .badge { background: rgba(255,255,255,0.3); }
   .seg:not(.active) .badge { background: var(--surface); }
 
-  /* ── Main scroll body ───────────────────────────────── */
   .body {
     flex: 1 1 auto;
     overflow-y: auto;
@@ -189,10 +176,8 @@
   .panel { display: none; }
   .panel.active { display: block; }
 
-  /* ── HUNT panel (form) ──────────────────────────────── */
-  .hunt-hero {
-    padding: 22px 20px 6px;
-  }
+  /* HUNT panel (form) — UNCHANGED */
+  .hunt-hero { padding: 22px 20px 6px; }
   .hunt-eyebrow {
     font-family: "JetBrains Mono", monospace;
     font-size: 10px;
@@ -233,7 +218,6 @@
     font-weight: 400;
   }
 
-  /* Form — boxy, no rounded pills, sharp like a CRM */
   .form {
     margin: 20px 16px 0;
     background: var(--ink);
@@ -276,8 +260,6 @@
     appearance: none; -webkit-appearance: none;
   }
   .form-cell input::placeholder { color: var(--text-3); font-weight: 500; }
-  /* OS-rendered dropdown options — must be explicit dark-text-on-light-bg
-     so the menu is readable regardless of system theme */
   .form-cell select option {
     background: #1a0808;
     color: #fff5ed;
@@ -292,7 +274,6 @@
     padding-right: 18px;
   }
 
-  /* Big primary button — sharp rectangle */
   .hunt-btn {
     margin: 16px 16px 0;
     width: calc(100% - 32px);
@@ -313,13 +294,8 @@
   .hunt-btn:hover:not(:disabled) { background: var(--accent-hot); }
   .hunt-btn:active:not(:disabled) { transform: scale(0.985); }
   .hunt-btn:disabled { opacity: 0.4; cursor: not-allowed; background: var(--surface); color: var(--text-3); }
-  .hunt-btn .arrow {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 18px;
-    line-height: 1;
-  }
+  .hunt-btn .arrow { font-family: "JetBrains Mono", monospace; font-size: 18px; line-height: 1; }
 
-  /* ── Progress (terminal-style scan line) ────────────── */
   .terminal {
     margin: 22px 16px 0;
     background: var(--ink);
@@ -438,7 +414,169 @@
   .term-act:disabled { opacity: 0.3; cursor: not-allowed; }
   .term-act.resume { background: var(--accent); color: var(--accent-ink); }
 
-  /* ── STACK panel (swipeable cards) ──────────────────── */
+  /* ═══════════════════════════════════════════════════════
+     NEW: LIST panel — see all collected data in a table view
+     ═══════════════════════════════════════════════════════ */
+  .list-summary {
+    padding: 16px 16px 8px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .list-count {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 36px;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--text);
+    font-feature-settings: "tnum";
+  }
+  .list-count .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--text-3);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-left: 6px;
+    font-weight: 500;
+  }
+  .list-filter-bar {
+    display: flex;
+    gap: 6px;
+    padding: 0 16px 12px;
+    flex-wrap: wrap;
+  }
+  .filter-chip {
+    background: var(--ink);
+    border: 1px solid var(--hairline);
+    color: var(--text-2);
+    padding: 6px 12px;
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .filter-chip.active {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+  .list-row {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--hairline);
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    animation: rowSlide 0.3s ease-out;
+  }
+  @keyframes rowSlide {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .list-row:hover { background: rgba(255,77,46,0.04); }
+  .list-row-idx {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--text-3);
+    font-feature-settings: "tnum";
+    align-self: start;
+    padding-top: 2px;
+  }
+  .list-row-info { min-width: 0; }
+  .list-row-name {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .list-row-name.unnamed { color: var(--text-3); font-weight: 500; font-style: italic; }
+  .list-row-addr {
+    font-size: 11px;
+    color: var(--text-2);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 4px;
+  }
+  .list-row-addr.missing { color: var(--text-3); font-style: italic; }
+  .list-row-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .list-tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 2px 6px;
+    background: var(--surface);
+    color: var(--text-2);
+  }
+  .list-tag.price { color: var(--positive); }
+  .list-row-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+  }
+  .list-phone {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .list-phone.muted {
+    color: var(--text-3);
+    font-style: italic;
+    font-weight: 500;
+  }
+  .list-link {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--text-3);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+  }
+  .list-link:hover { color: var(--text); }
+  .list-empty {
+    margin: 40px 20px 0;
+    padding: 50px 24px;
+    background: var(--ink);
+    border: 1.5px dashed var(--hairline-2);
+    text-align: center;
+  }
+  .list-empty .big {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 56px;
+    color: var(--accent);
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    margin-bottom: 14px;
+  }
+  .list-empty p {
+    color: var(--text-2);
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 260px;
+    margin: 0 auto;
+  }
+
+  /* STACK panel — UNCHANGED */
   .stack-summary {
     padding: 16px 20px 10px;
     display: flex; align-items: flex-end; justify-content: space-between;
@@ -474,10 +612,6 @@
     margin-bottom: 2px;
   }
 
-  /* The actual card stack arena.
-     Cards are positioned absolutely WITHIN the arena so they can be
-     stacked visually. Margin-bottom keeps the card clear of the dock
-     (and on desktop preview, clear of the phone frame's bottom curve). */
   .stack-arena {
     position: relative;
     margin: 0 18px 16px;
@@ -499,18 +633,9 @@
     transform: translate(0, 0) scale(1);
     overflow: hidden;
   }
-  .card.dragging {
-    cursor: grabbing;
-    transition: none;
-  }
-  .card.swiped-right {
-    transform: translateX(120%) rotate(20deg) !important;
-    opacity: 0;
-  }
-  .card.swiped-left {
-    transform: translateX(-120%) rotate(-20deg) !important;
-    opacity: 0;
-  }
+  .card.dragging { cursor: grabbing; transition: none; }
+  .card.swiped-right { transform: translateX(120%) rotate(20deg) !important; opacity: 0; }
+  .card.swiped-left { transform: translateX(-120%) rotate(-20deg) !important; opacity: 0; }
   .card .badge {
     position: absolute;
     top: 24px;
@@ -538,7 +663,6 @@
   }
   .card.show-save .badge.save { opacity: 1; }
   .card.show-skip .badge.skip { opacity: 1; }
-
   .card-top {
     flex: 0 0 auto;
     padding-bottom: 14px;
@@ -552,8 +676,6 @@
     letter-spacing: 0.15em;
     margin-bottom: 8px;
   }
-  /* PHONE — the most important piece of info, displayed huge at TOP of card,
-     far from any clip zone. Tap to call. */
   .card-phone {
     display: block;
     font-family: "JetBrains Mono", monospace;
@@ -573,10 +695,9 @@
     font-size: 16px;
     font-weight: 500;
   }
-
   .card-body {
     flex: 1 1 auto;
-    min-height: 0;  /* allow flex children to shrink properly */
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -607,10 +728,6 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-
-  /* Bottom stats row — Rent + Beds only (NO phone here, phone is at top).
-     Even if the bottom-right of this row gets visually clipped by the
-     desktop preview's phone frame curve, the phone number is unaffected. */
   .card-bottom {
     flex: 0 0 auto;
     padding-top: 14px;
@@ -637,7 +754,6 @@
     letter-spacing: -0.01em;
   }
 
-  /* Swipe action buttons */
   .stack-actions {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -659,9 +775,7 @@
     transition: all 0.15s;
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   }
-  .swipe-btn.skip {
-    color: var(--text-2);
-  }
+  .swipe-btn.skip { color: var(--text-2); }
   .swipe-btn.skip:hover { border-color: var(--text-2); }
   .swipe-btn.save {
     background: var(--accent);
@@ -690,7 +804,6 @@
     pointer-events: none;
   }
 
-  /* Empty state for stack */
   .stack-empty {
     margin: 40px 20px 0;
     padding: 50px 24px;
@@ -723,11 +836,7 @@
     letter-spacing: 0.1em;
   }
 
-  /* Finished state — show summary */
-  .stack-done {
-    padding: 30px 20px;
-    text-align: center;
-  }
+  .stack-done { padding: 30px 20px; text-align: center; }
   .stack-done .num {
     font-family: "Bricolage Grotesque", sans-serif;
     font-weight: 800;
@@ -751,7 +860,6 @@
     line-height: 1.5;
   }
 
-  /* ── Dock ───────────────────────────────────────────── */
   .dock {
     flex: 0 0 auto;
     padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px));
@@ -783,7 +891,6 @@
   .dock-btn.primary:hover:not(:disabled) { background: var(--accent-hot); }
   .dock-btn svg { width: 12px; height: 12px; }
 
-  /* ── Toast ──────────────────────────────────────────── */
   .toast {
     position: absolute;
     left: 50%; bottom: 90px;
@@ -818,26 +925,23 @@
       </div>
     </div>
 
-    <!-- Header: brand + segmented control -->
     <div class="header">
       <div class="brand">
         <div class="brand-mark">H</div>
         <div class="brand-name">HUNT</div>
         <div class="brand-tag">APARTMENT RENTALS v1</div>
       </div>
+      <!-- 3 tabs: Hunt, List (NEW), Stack -->
       <div class="segmented">
-        <button class="seg active" data-tab="hunt">
-          Hunt
-        </button>
-        <button class="seg" data-tab="stack">
-          Stack <span class="badge" id="stack-badge">0</span>
-        </button>
+        <button class="seg active" data-tab="hunt">Hunt</button>
+        <button class="seg" data-tab="list">List <span class="badge" id="list-badge">0</span></button>
+        <button class="seg" data-tab="stack">Stack <span class="badge" id="stack-badge">0</span></button>
       </div>
     </div>
 
     <div class="body" id="body">
 
-      <!-- HUNT PANEL -->
+      <!-- HUNT PANEL — UNCHANGED -->
       <div class="panel active" id="panel-hunt">
         <div class="hunt-hero">
           <div class="hunt-eyebrow">★ LEAD HUNTER · APARTMENT RENTALS</div>
@@ -892,7 +996,6 @@
           <span class="arrow">→</span>
         </button>
 
-        <!-- Terminal-style progress (shown during scrape) -->
         <div id="terminal" class="terminal" style="display:none">
           <div class="term-head">
             <span class="term-dot" id="term-dot"></span>
@@ -917,7 +1020,33 @@
         <div style="height: 24px"></div>
       </div>
 
-      <!-- STACK PANEL — swipeable card stack -->
+      <!-- LIST PANEL — NEW: see all collected data in a table -->
+      <div class="panel" id="panel-list">
+        <div id="list-empty" class="list-empty">
+          <div class="big">0</div>
+          <p>No leads scraped yet. Run a hunt to see all results here.</p>
+        </div>
+        <div id="list-content" style="display:none">
+          <div class="list-summary">
+            <div class="list-count">
+              <span id="list-total-num">0</span><span class="lbl">leads</span>
+            </div>
+            <div class="list-count" style="font-size:24px">
+              <span id="list-phone-num" style="color:var(--accent)">0</span><span class="lbl">phones</span>
+            </div>
+          </div>
+          <div class="list-filter-bar">
+            <button class="filter-chip active" data-filter="all">All</button>
+            <button class="filter-chip" data-filter="with-phone">With Phone</button>
+            <button class="filter-chip" data-filter="no-phone">No Phone</button>
+            <button class="filter-chip" data-filter="with-address">With Address</button>
+          </div>
+          <div id="list-rows"></div>
+        </div>
+        <div style="height: 24px"></div>
+      </div>
+
+      <!-- STACK PANEL — UNCHANGED -->
       <div class="panel" id="panel-stack">
         <div id="stack-empty" class="stack-empty">
           <div class="big">0</div>
@@ -937,15 +1066,11 @@
           </div>
           <div class="stack-arena" id="arena"></div>
           <div class="stack-actions">
-            <button class="swipe-btn skip" id="btn-skip">
-              ← Skip
-            </button>
+            <button class="swipe-btn skip" id="btn-skip">← Skip</button>
             <a class="call-pill" id="btn-call" href="#" aria-label="Call">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z"/></svg>
             </a>
-            <button class="swipe-btn save" id="btn-save">
-              Save →
-            </button>
+            <button class="swipe-btn save" id="btn-save">Save →</button>
           </div>
         </div>
 
@@ -962,7 +1087,6 @@
 
     </div>
 
-    <!-- Dock -->
     <div class="dock">
       <button class="dock-btn" id="reset">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
@@ -979,7 +1103,6 @@
 </div>
 
 <script>
-  // ── Clock ────────────────────────────────────────────────
   function tickClock() {
     const d = new Date();
     const h = d.getHours() % 12 || 12;
@@ -988,15 +1111,15 @@
   }
   tickClock(); setInterval(tickClock, 30000);
 
-  // ── State ────────────────────────────────────────────────
   let currentJobId = null;
   let pollTimer = null;
   let elapsedTimer = null;
   let startedAt = null;
-  let allLeads = [];          // everything pulled
-  let stackIndex = 0;         // current card position
-  let savedSet = new Set();   // URLs the user has swiped right on
-  let skippedSet = new Set(); // URLs the user has swiped left on
+  let allLeads = [];
+  let stackIndex = 0;
+  let savedSet = new Set();
+  let skippedSet = new Set();
+  let currentListFilter = "all";  // NEW
 
   const $ = (id) => document.getElementById(id);
 
@@ -1014,7 +1137,6 @@
     }[c]));
   }
 
-  // ── Tab switching ────────────────────────────────────────
   document.querySelectorAll(".seg").forEach((s) => {
     s.addEventListener("click", () => switchTab(s.dataset.tab));
   });
@@ -1027,9 +1149,9 @@
     });
     $("body").scrollTop = 0;
     if (name === "stack") renderStack();
+    if (name === "list") renderList();  // NEW
   }
 
-  // ── Wire up controls ─────────────────────────────────────
   $("go").addEventListener("click", startScrape);
   ["f-city", "f-state", "f-price"].forEach((id) => {
     $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") startScrape(); });
@@ -1037,8 +1159,6 @@
   $("reset").addEventListener("click", resetUI);
   $("export").addEventListener("click", () => {
     if (!currentJobId) return;
-    // Export only saved leads (the swipe-right set). If user never used the stack,
-    // export everything.
     const usedStack = savedSet.size > 0 || skippedSet.size > 0;
     if (usedStack) {
       window.location.href = `/api/export/${currentJobId}?only=${encodeURIComponent(Array.from(savedSet).join(','))}`;
@@ -1051,7 +1171,17 @@
   $("btn-skip").addEventListener("click", () => animateSwipe("left"));
   $("btn-save").addEventListener("click", () => animateSwipe("right"));
 
-  // ── Scrape lifecycle ─────────────────────────────────────
+  // NEW: List filter chip wire-up
+  document.querySelectorAll(".filter-chip").forEach((c) => {
+    c.addEventListener("click", () => {
+      currentListFilter = c.dataset.filter;
+      document.querySelectorAll(".filter-chip").forEach((ch) => {
+        ch.classList.toggle("active", ch.dataset.filter === currentListFilter);
+      });
+      renderList();
+    });
+  });
+
   async function startScrape() {
     const city = $("f-city").value.trim();
     const state = $("f-state").value.trim().toUpperCase();
@@ -1151,8 +1281,8 @@
           allLeads = job.results || [];
           $("export").disabled = allLeads.length === 0;
           toast(`${allLeads.length} leads ready`, "success");
-          // Auto-jump to stack to start swiping
-          setTimeout(() => switchTab("stack"), 700);
+          // CHANGED: auto-jump to LIST tab (not stack) so user sees all data
+          setTimeout(() => switchTab("list"), 700);
         }
       }
     } catch (e) { console.error(e); }
@@ -1170,6 +1300,7 @@
 
     allLeads = job.results || [];
     $("stack-badge").textContent = allLeads.length;
+    $("list-badge").textContent = allLeads.length;  // NEW
     let phones = 0;
     allLeads.forEach((l) => { if (l.phone) phones++; });
     $("term-n-phones").textContent = phones;
@@ -1187,7 +1318,6 @@
     }
   }
 
-  // ── Pause/stop ───────────────────────────────────────────
   async function sendControl(action) {
     if (!currentJobId) return;
     try {
@@ -1200,13 +1330,8 @@
   }
   async function togglePause() {
     const isPaused = $("term-pause").classList.contains("resume");
-    if (isPaused) {
-      await sendControl("resume");
-      toast("Resumed");
-    } else {
-      await sendControl("pause");
-      toast("Pausing after current page");
-    }
+    if (isPaused) { await sendControl("resume"); toast("Resumed"); }
+    else { await sendControl("pause"); toast("Pausing after current page"); }
   }
   async function stopScrape() {
     if (!confirm("Stop the hunt? Collected leads stay.")) return;
@@ -1214,9 +1339,63 @@
     toast("Stopping");
   }
 
-  // ── Card stack rendering + swipe gestures ────────────────
+  // ─── NEW: List view renderer ───
+  function renderList() {
+    if (allLeads.length === 0) {
+      $("list-empty").style.display = "block";
+      $("list-content").style.display = "none";
+      return;
+    }
+    $("list-empty").style.display = "none";
+    $("list-content").style.display = "block";
+
+    let visible = allLeads;
+    if (currentListFilter === "with-phone") visible = allLeads.filter((l) => l.phone);
+    else if (currentListFilter === "no-phone") visible = allLeads.filter((l) => !l.phone);
+    else if (currentListFilter === "with-address") visible = allLeads.filter((l) => l.address);
+
+    const phoneCount = allLeads.filter((l) => l.phone).length;
+    $("list-total-num").textContent = visible.length;
+    $("list-phone-num").textContent = phoneCount;
+
+    $("list-rows").innerHTML = visible.map((lead, i) => {
+      const idx = String(i + 1).padStart(2, "0");
+      const name = lead.property_name || "Unnamed";
+      const nameClass = lead.property_name ? "" : "unnamed";
+      const addr = lead.address || "No address";
+      const addrClass = lead.address ? "" : "missing";
+
+      const phone = lead.phone
+        ? `<a class="list-phone" href="tel:${escapeHtml(lead.phone.replace(/\D/g, ''))}">${escapeHtml(lead.phone)}</a>`
+        : `<span class="list-phone muted">no phone</span>`;
+
+      const tags = [];
+      if (lead.price) tags.push(`<span class="list-tag price">${escapeHtml(lead.price)}</span>`);
+      if (lead.beds) tags.push(`<span class="list-tag">${escapeHtml(lead.beds)}</span>`);
+
+      const linkBtn = lead.url
+        ? `<a class="list-link" href="${escapeHtml(lead.url)}" target="_blank" rel="noopener">VIEW →</a>`
+        : "";
+
+      return `
+        <div class="list-row">
+          <div class="list-row-idx">${idx}</div>
+          <div class="list-row-info">
+            <div class="list-row-name ${nameClass}">${escapeHtml(name)}</div>
+            <div class="list-row-addr ${addrClass}">${escapeHtml(addr)}</div>
+            <div class="list-row-tags">${tags.join("")}</div>
+          </div>
+          <div class="list-row-actions">
+            ${phone}
+            ${linkBtn}
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // Stack renderer — UNCHANGED
   function renderStack() {
-    // Build the deck visible state based on current allLeads + savedSet + skippedSet
     const remaining = allLeads.filter((l, i) =>
       i >= stackIndex && !savedSet.has(l.url) && !skippedSet.has(l.url)
     );
@@ -1245,14 +1424,12 @@
     $("stack-saved-count").textContent = `${savedSet.size} saved`;
     $("stack-skipped-count").textContent = `${skippedSet.size} skipped`;
 
-    // Render up to 3 cards stacked, with the top one being interactive
     const arena = $("arena");
     arena.innerHTML = "";
     const upcoming = allLeads.slice(stackIndex, stackIndex + 3).reverse();
     upcoming.forEach((lead, revIdx) => {
-      const depth = upcoming.length - 1 - revIdx; // 0 = top
+      const depth = upcoming.length - 1 - revIdx;
       const card = makeCard(lead, stackIndex + (upcoming.length - 1 - revIdx));
-      // Visual stack effect — back cards are slightly smaller and offset
       const scale = 1 - (depth * 0.04);
       const offsetY = depth * 8;
       card.style.transform = `translateY(${offsetY}px) scale(${scale})`;
@@ -1266,7 +1443,6 @@
       arena.appendChild(card);
     });
 
-    // Update call button on the action row
     const top = allLeads[stackIndex];
     const callBtn = $("btn-call");
     if (top && top.phone) {
@@ -1290,17 +1466,14 @@
     card.innerHTML = `
       <div class="badge save">SAVE</div>
       <div class="badge skip">SKIP</div>
-
       <div class="card-top">
         <div class="card-idx">LEAD ${idxStr} / ${String(allLeads.length).padStart(2,"0")}</div>
         ${phoneBlock}
       </div>
-
       <div class="card-body">
         <div class="card-name">${escapeHtml(lead.property_name || "Unnamed property")}</div>
         <div class="card-addr">${escapeHtml(lead.address || "Address not found")}</div>
       </div>
-
       <div class="card-bottom">
         <div class="card-stat">
           <div class="card-stat-k">Rent</div>
@@ -1317,7 +1490,6 @@
 
   function attachSwipe(card, lead) {
     let startX = 0, startY = 0, currentX = 0, isDragging = false;
-
     const start = (e) => {
       isDragging = true;
       card.classList.add("dragging");
@@ -1331,7 +1503,6 @@
       const t = e.touches ? e.touches[0] : e;
       currentX = t.clientX - startX;
       const dy = t.clientY - startY;
-      // require mostly horizontal motion
       if (Math.abs(dy) > Math.abs(currentX) * 1.4 && Math.abs(currentX) < 10) return;
       const rot = currentX * 0.06;
       card.style.transform = `translateX(${currentX}px) rotate(${rot}deg)`;
@@ -1344,16 +1515,10 @@
       isDragging = false;
       card.classList.remove("dragging");
       const threshold = 90;
-      if (currentX > threshold) {
-        commitSwipe(card, lead, "right");
-      } else if (currentX < -threshold) {
-        commitSwipe(card, lead, "left");
-      } else {
-        card.style.transform = "";
-        card.classList.remove("show-save", "show-skip");
-      }
+      if (currentX > threshold) commitSwipe(card, lead, "right");
+      else if (currentX < -threshold) commitSwipe(card, lead, "left");
+      else { card.style.transform = ""; card.classList.remove("show-save", "show-skip"); }
     };
-
     card.addEventListener("mousedown", start);
     document.addEventListener("mousemove", move);
     document.addEventListener("mouseup", end);
@@ -1372,18 +1537,11 @@
 
   function commitSwipe(card, lead, direction) {
     card.classList.add(direction === "right" ? "swiped-right" : "swiped-left");
-    if (direction === "right") {
-      savedSet.add(lead.url);
-    } else {
-      skippedSet.add(lead.url);
-    }
-    setTimeout(() => {
-      stackIndex++;
-      renderStack();
-    }, 280);
+    if (direction === "right") savedSet.add(lead.url);
+    else skippedSet.add(lead.url);
+    setTimeout(() => { stackIndex++; renderStack(); }, 280);
   }
 
-  // ── Reset ────────────────────────────────────────────────
   function resetUI() {
     if (pollTimer) clearInterval(pollTimer);
     if (elapsedTimer) clearInterval(elapsedTimer);
@@ -1394,15 +1552,17 @@
     stackIndex = 0;
     $("terminal").style.display = "none";
     $("stack-badge").textContent = "0";
+    $("list-badge").textContent = "0";
     $("export").disabled = true;
     $("go").disabled = false;
     renderStack();
+    renderList();
     switchTab("hunt");
     $("f-city").focus();
   }
 
-  // initial render
   renderStack();
+  renderList();
 </script>
 </body>
 </html>
