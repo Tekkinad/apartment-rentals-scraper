@@ -1,0 +1,1408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#1a0808" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>HUNT — Rental Leads</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    /* oxblood / cinder / orange — aggressive sales tool */
+    --ink:        #0e0303;
+    --ink-2:      #1a0808;
+    --surface:    #2a0e0a;
+    --surface-2:  #3a1410;
+    --hairline:   rgba(255,180,160,0.10);
+    --hairline-2: rgba(255,180,160,0.20);
+    --text:       #fff5ed;
+    --text-2:     #c9a59c;
+    --text-3:     #8a615a;
+    --accent:     #ff4d2e;     /* signature orange-red */
+    --accent-hot: #ff6a3d;
+    --accent-ink: #1a0606;
+    --positive:   #ffb347;
+    --positive-2: #ff8c42;
+    --warning:    #ffcc00;
+    --danger:     #ff2d4d;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+
+  html, body {
+    height: 100vh; height: 100dvh;
+    overflow: hidden;
+    background: #000;
+    color: var(--text);
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.005em;
+  }
+
+  /* ── Stage ─────────────────────────────────────────── */
+  .stage {
+    width: 100vw; height: 100vh; height: 100dvh;
+    display: grid; place-items: center;
+    background:
+      radial-gradient(900px 700px at 80% 10%, rgba(255,77,46,0.10), transparent 60%),
+      radial-gradient(700px 500px at 10% 90%, rgba(255,200,80,0.04), transparent 55%),
+      #050202;
+  }
+  .phone {
+    position: relative;
+    width: 100%; height: 100%;
+    background: var(--ink-2);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  @media (min-width: 720px) {
+    .phone {
+      aspect-ratio: 9 / 19.5;
+      width: auto;
+      height: 94vh;
+      max-height: 920px;
+      border-radius: 48px;
+      border: 11px solid #000;
+      box-shadow:
+        0 60px 120px -30px rgba(0,0,0,0.95),
+        0 0 60px -10px rgba(255,77,46,0.12),
+        0 0 0 1px rgba(255,180,160,0.04) inset;
+    }
+    .phone::before {
+      content: ""; position: absolute;
+      top: 10px; left: 50%; transform: translateX(-50%);
+      width: 120px; height: 32px;
+      background: #000; border-radius: 20px;
+      z-index: 100;
+    }
+  }
+
+  /* ── Status bar ─────────────────────────────────────── */
+  /* On mobile (Add to Home Screen / standalone), the device's real
+     status bar (battery, signal) sits on top of our content. Use the
+     env() safe-area inset to push our fake status bar below it. */
+  .statusbar {
+    height: 44px; flex: 0 0 auto;
+    min-height: calc(44px + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    display: flex; align-items: center; justify-content: space-between;
+    padding-left: 28px; padding-right: 28px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; font-weight: 500;
+  }
+  /* When running standalone (Add to Home), hide our fake status bar entirely —
+     the device shows its real one anyway, no need to duplicate it. */
+  @media all and (display-mode: standalone) {
+    .statusbar { display: none; }
+    .header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+  }
+
+  /* ── Header bar — brand + segmented control ─────────── */
+  .header {
+    padding: 8px 20px 12px;
+    border-bottom: 1px solid var(--hairline);
+    flex: 0 0 auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .brand-mark {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display: grid; place-items: center;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+    transform: rotate(-4deg);
+  }
+  .brand-name {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+  .brand-tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--text-3);
+    margin-left: auto;
+    letter-spacing: 0.05em;
+  }
+
+  /* Segmented control — Hunt / Stack */
+  .segmented {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--ink);
+    border: 1px solid var(--hairline);
+    padding: 3px;
+    gap: 3px;
+  }
+  .seg {
+    background: transparent;
+    border: 0;
+    color: var(--text-2);
+    padding: 9px 12px;
+    cursor: pointer;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .seg.active {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .seg .badge {
+    background: rgba(0,0,0,0.25);
+    padding: 2px 7px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .seg.active .badge { background: rgba(255,255,255,0.3); }
+  .seg:not(.active) .badge { background: var(--surface); }
+
+  /* ── Main scroll body ───────────────────────────────── */
+  .body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+  }
+  .body::-webkit-scrollbar { display: none; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── HUNT panel (form) ──────────────────────────────── */
+  .hunt-hero {
+    padding: 22px 20px 6px;
+  }
+  .hunt-eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .hunt-title {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 38px;
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    color: var(--text);
+  }
+  .hunt-title .strike {
+    color: var(--accent);
+    position: relative;
+    display: inline-block;
+  }
+  .hunt-title .strike::after {
+    content: "";
+    position: absolute;
+    left: -2px; right: -2px;
+    bottom: 0.18em;
+    height: 6px;
+    background: var(--accent);
+    opacity: 0.18;
+    z-index: -1;
+  }
+  .hunt-sub {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--text-2);
+    line-height: 1.45;
+    max-width: 280px;
+    font-weight: 400;
+  }
+
+  /* Form — boxy, no rounded pills, sharp like a CRM */
+  .form {
+    margin: 20px 16px 0;
+    background: var(--ink);
+    border: 1px solid var(--hairline);
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .form-row.full { grid-template-columns: 1fr; }
+  .form-row:last-of-type { border-bottom: 0; }
+  .form-cell {
+    padding: 12px 14px;
+    border-right: 1px solid var(--hairline);
+    position: relative;
+  }
+  .form-cell:last-child { border-right: 0; }
+  .form-cell label {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 4px;
+  }
+  .form-cell input,
+  .form-cell select {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    outline: none;
+    color: var(--text);
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 0;
+    appearance: none; -webkit-appearance: none;
+  }
+  .form-cell input::placeholder { color: var(--text-3); font-weight: 500; }
+  /* OS-rendered dropdown options — must be explicit dark-text-on-light-bg
+     so the menu is readable regardless of system theme */
+  .form-cell select option {
+    background: #1a0808;
+    color: #fff5ed;
+    font-weight: 500;
+    padding: 8px;
+  }
+  .form-cell select {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23c9a59c' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0 center;
+    padding-right: 18px;
+  }
+
+  /* Big primary button — sharp rectangle */
+  .hunt-btn {
+    margin: 16px 16px 0;
+    width: calc(100% - 32px);
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 0;
+    padding: 18px;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: background 0.15s, transform 0.08s;
+    position: relative;
+  }
+  .hunt-btn:hover:not(:disabled) { background: var(--accent-hot); }
+  .hunt-btn:active:not(:disabled) { transform: scale(0.985); }
+  .hunt-btn:disabled { opacity: 0.4; cursor: not-allowed; background: var(--surface); color: var(--text-3); }
+  .hunt-btn .arrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  /* ── Progress (terminal-style scan line) ────────────── */
+  .terminal {
+    margin: 22px 16px 0;
+    background: var(--ink);
+    border: 1px solid var(--accent);
+    border-left-width: 3px;
+    overflow: hidden;
+  }
+  .term-head {
+    padding: 12px 16px;
+    background: linear-gradient(90deg, rgba(255,77,46,0.12), transparent);
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .term-dot {
+    width: 6px; height: 6px;
+    background: var(--accent);
+    animation: blink 1s steps(2) infinite;
+  }
+  .term-dot.done { background: var(--positive); animation: none; }
+  .term-dot.error { background: var(--danger); animation: none; }
+  .term-dot.paused { background: var(--warning); animation: none; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  .term-status {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    flex: 1;
+  }
+  .term-elapsed {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--text-3);
+    font-feature-settings: "tnum";
+  }
+  .term-bar {
+    height: 3px;
+    background: var(--surface);
+    overflow: hidden;
+    position: relative;
+  }
+  .term-bar > span {
+    display: block; height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .term-log {
+    padding: 10px 16px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--text-2);
+    line-height: 1.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .term-log::before {
+    content: ">> ";
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .term-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--hairline);
+  }
+  .term-stat {
+    padding: 14px 12px;
+    text-align: center;
+    border-right: 1px solid var(--hairline);
+  }
+  .term-stat:last-child { border-right: 0; }
+  .term-stat .n {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-feature-settings: "tnum";
+  }
+  .term-stat .k {
+    margin-top: 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+  .term-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--hairline);
+  }
+  .term-act {
+    background: transparent;
+    border: 0;
+    color: var(--text-2);
+    padding: 12px;
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-right: 1px solid var(--hairline);
+    transition: all 0.15s;
+  }
+  .term-act:last-child { border-right: 0; }
+  .term-act:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+  .term-act:disabled { opacity: 0.3; cursor: not-allowed; }
+  .term-act.resume { background: var(--accent); color: var(--accent-ink); }
+
+  /* ── STACK panel (swipeable cards) ──────────────────── */
+  .stack-summary {
+    padding: 16px 20px 10px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 14px;
+  }
+  .stack-counter {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 48px;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    color: var(--text);
+    font-feature-settings: "tnum";
+  }
+  .stack-counter .of {
+    color: var(--text-3);
+    font-weight: 500;
+    font-size: 20px;
+  }
+  .stack-mode {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--text-3);
+    letter-spacing: 0.15em;
+    text-align: right;
+    padding-bottom: 8px;
+  }
+  .stack-mode .saved {
+    color: var(--accent);
+    font-weight: 700;
+    display: block;
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+
+  /* The actual card stack arena.
+     Cards are positioned absolutely WITHIN the arena so they can be
+     stacked visually. Margin-bottom keeps the card clear of the dock
+     (and on desktop preview, clear of the phone frame's bottom curve). */
+  .stack-arena {
+    position: relative;
+    margin: 0 18px 16px;
+    height: 380px;
+  }
+  .card {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 100%;
+    background: var(--ink);
+    border: 1px solid var(--hairline-2);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    cursor: grab;
+    user-select: none;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s;
+    will-change: transform;
+    transform: translate(0, 0) scale(1);
+    overflow: hidden;
+  }
+  .card.dragging {
+    cursor: grabbing;
+    transition: none;
+  }
+  .card.swiped-right {
+    transform: translateX(120%) rotate(20deg) !important;
+    opacity: 0;
+  }
+  .card.swiped-left {
+    transform: translateX(-120%) rotate(-20deg) !important;
+    opacity: 0;
+  }
+  .card .badge {
+    position: absolute;
+    top: 24px;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: 0.05em;
+    padding: 6px 14px;
+    border: 3px solid;
+    opacity: 0;
+    transform: rotate(-12deg);
+    transition: opacity 0.15s;
+    pointer-events: none;
+  }
+  .card .badge.save {
+    right: 24px;
+    color: var(--accent);
+    border-color: var(--accent);
+    transform: rotate(12deg);
+  }
+  .card .badge.skip {
+    left: 24px;
+    color: var(--text-3);
+    border-color: var(--text-3);
+  }
+  .card.show-save .badge.save { opacity: 1; }
+  .card.show-skip .badge.skip { opacity: 1; }
+
+  .card-top {
+    flex: 0 0 auto;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--hairline);
+    margin-bottom: 14px;
+  }
+  .card-idx {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--text-3);
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+  /* PHONE — the most important piece of info, displayed huge at TOP of card,
+     far from any clip zone. Tap to call. */
+  .card-phone {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: 0;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-phone.muted {
+    color: var(--text-3);
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .card-body {
+    flex: 1 1 auto;
+    min-height: 0;  /* allow flex children to shrink properly */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .card-name {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    color: var(--text);
+    flex: 0 0 auto;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-addr {
+    font-size: 13px;
+    color: var(--text-2);
+    line-height: 1.4;
+    flex: 1 1 auto;
+    font-weight: 400;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Bottom stats row — Rent + Beds only (NO phone here, phone is at top).
+     Even if the bottom-right of this row gets visually clipped by the
+     desktop preview's phone frame curve, the phone number is unaffected. */
+  .card-bottom {
+    flex: 0 0 auto;
+    padding-top: 14px;
+    border-top: 1px solid var(--hairline);
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .card-stat-k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--text-3);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    font-weight: 700;
+  }
+  .card-stat-v {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  /* Swipe action buttons */
+  .stack-actions {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 14px;
+    padding: 18px 20px 12px;
+    align-items: center;
+  }
+  .swipe-btn {
+    background: var(--ink);
+    border: 1.5px solid var(--hairline-2);
+    color: var(--text);
+    padding: 14px;
+    cursor: pointer;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .swipe-btn.skip {
+    color: var(--text-2);
+  }
+  .swipe-btn.skip:hover { border-color: var(--text-2); }
+  .swipe-btn.save {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+  .swipe-btn.save:hover { background: var(--accent-hot); }
+  .swipe-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .call-pill {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--positive-2);
+    border: 0;
+    color: var(--ink);
+    display: grid; place-items: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.15s;
+  }
+  .call-pill:hover { transform: scale(1.05); }
+  .call-pill svg { width: 22px; height: 22px; }
+  .call-pill.disabled {
+    background: var(--surface);
+    color: var(--text-3);
+    pointer-events: none;
+  }
+
+  /* Empty state for stack */
+  .stack-empty {
+    margin: 40px 20px 0;
+    padding: 50px 24px;
+    background: var(--ink);
+    border: 1.5px dashed var(--hairline-2);
+    text-align: center;
+  }
+  .stack-empty .big {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 56px;
+    color: var(--accent);
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    margin-bottom: 14px;
+  }
+  .stack-empty p {
+    color: var(--text-2);
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 260px;
+    margin: 0 auto;
+    font-weight: 400;
+  }
+  .stack-empty .hint {
+    margin-top: 12px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--text-3);
+    letter-spacing: 0.1em;
+  }
+
+  /* Finished state — show summary */
+  .stack-done {
+    padding: 30px 20px;
+    text-align: center;
+  }
+  .stack-done .num {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 72px;
+    color: var(--accent);
+    letter-spacing: -0.05em;
+    line-height: 0.9;
+  }
+  .stack-done .label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--text-3);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+  .stack-done .desc {
+    margin-top: 14px;
+    color: var(--text-2);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* ── Dock ───────────────────────────────────────────── */
+  .dock {
+    flex: 0 0 auto;
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--hairline);
+    background: rgba(14,3,3,0.92);
+    backdrop-filter: blur(16px);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .dock-btn {
+    background: var(--ink);
+    border: 1px solid var(--hairline);
+    color: var(--text-2);
+    padding: 13px;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.15s;
+  }
+  .dock-btn:hover:not(:disabled) { border-color: var(--hairline-2); color: var(--text); }
+  .dock-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .dock-btn.primary {
+    background: var(--accent); color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+  .dock-btn.primary:hover:not(:disabled) { background: var(--accent-hot); }
+  .dock-btn svg { width: 12px; height: 12px; }
+
+  /* ── Toast ──────────────────────────────────────────── */
+  .toast {
+    position: absolute;
+    left: 50%; bottom: 90px;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text);
+    color: var(--ink);
+    padding: 10px 16px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 200;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { background: var(--accent); color: var(--accent-ink); }
+  .toast.error { background: var(--danger); color: var(--text); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="phone">
+
+    <div class="statusbar">
+      <span id="clock">9:41</span>
+      <div style="display:inline-flex;align-items:center;gap:6px">
+        <span style="font-size:10px;letter-spacing:0.05em">5G</span>
+        <svg viewBox="0 0 26 14" fill="none" stroke="currentColor" stroke-width="1" width="20" height="11"><rect x="0.5" y="0.5" width="22" height="13" rx="3"/><rect x="2" y="2" width="19" height="10" rx="1.5" fill="currentColor"/><rect x="23" y="4" width="2" height="6" rx="0.5" fill="currentColor"/></svg>
+      </div>
+    </div>
+
+    <!-- Header: brand + segmented control -->
+    <div class="header">
+      <div class="brand">
+        <div class="brand-mark">H</div>
+        <div class="brand-name">HUNT</div>
+        <div class="brand-tag">APARTMENT RENTALS v1</div>
+      </div>
+      <div class="segmented">
+        <button class="seg active" data-tab="hunt">
+          Hunt
+        </button>
+        <button class="seg" data-tab="stack">
+          Stack <span class="badge" id="stack-badge">0</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="body" id="body">
+
+      <!-- HUNT PANEL -->
+      <div class="panel active" id="panel-hunt">
+        <div class="hunt-hero">
+          <div class="hunt-eyebrow">★ LEAD HUNTER · APARTMENT RENTALS</div>
+          <h1 class="hunt-title">
+            Rip <span class="strike">rental</span><br/>
+            leads. Fast.
+          </h1>
+          <p class="hunt-sub">Pick any city. Set your max rent. We pull the cards, you swipe through and keep the winners.</p>
+        </div>
+
+        <div class="form">
+          <div class="form-row">
+            <div class="form-cell">
+              <label>City</label>
+              <input id="f-city" placeholder="Raleigh" autocomplete="off" />
+            </div>
+            <div class="form-cell">
+              <label>State</label>
+              <input id="f-state" placeholder="NC" maxlength="2" style="text-transform:uppercase" autocomplete="off" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-cell">
+              <label>Bedrooms</label>
+              <select id="f-beds">
+                <option value="1">1 bed</option>
+                <option value="2" selected>2 beds</option>
+                <option value="3">3 beds</option>
+                <option value="4">4 beds</option>
+              </select>
+            </div>
+            <div class="form-cell">
+              <label>Max rent ($)</label>
+              <input id="f-price" type="number" placeholder="1500" inputmode="numeric" />
+            </div>
+          </div>
+          <div class="form-row full">
+            <div class="form-cell">
+              <label>Page limit</label>
+              <select id="f-pages">
+                <option value="1">1 page · fast (~30 leads)</option>
+                <option value="3" selected>3 pages · normal (~90 leads)</option>
+                <option value="5">5 pages · deep (~150 leads)</option>
+                <option value="">No limit · all pages</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <button class="hunt-btn" id="go">
+          <span>Start hunt</span>
+          <span class="arrow">→</span>
+        </button>
+
+        <!-- Terminal-style progress (shown during scrape) -->
+        <div id="terminal" class="terminal" style="display:none">
+          <div class="term-head">
+            <span class="term-dot" id="term-dot"></span>
+            <span class="term-status" id="term-status">INITIALISING</span>
+            <span class="term-elapsed" id="term-elapsed">0s</span>
+          </div>
+          <div class="term-bar"><span id="term-bar-fill"></span></div>
+          <div class="term-log" id="term-log">spinning up scraper</div>
+          <div class="term-stats">
+            <div class="term-stat"><div class="n" id="term-n-leads">0</div><div class="k">Leads</div></div>
+            <div class="term-stat"><div class="n" id="term-n-phones">0</div><div class="k">Phones</div></div>
+            <div class="term-stat"><div class="n" id="term-n-total">—</div><div class="k">Total</div></div>
+          </div>
+          <div class="term-actions">
+            <button class="term-act" id="term-pause">
+              <span id="term-pause-label">⏸ Pause</span>
+            </button>
+            <button class="term-act" id="term-stop">■ Stop</button>
+          </div>
+        </div>
+
+        <div style="height: 24px"></div>
+      </div>
+
+      <!-- STACK PANEL — swipeable card stack -->
+      <div class="panel" id="panel-stack">
+        <div id="stack-empty" class="stack-empty">
+          <div class="big">0</div>
+          <p>No leads to swipe through yet. Run a hunt first.</p>
+          <div class="hint">SWIPE LEFT TO SKIP · SWIPE RIGHT TO SAVE</div>
+        </div>
+
+        <div id="stack-active" style="display:none">
+          <div class="stack-summary">
+            <div class="stack-counter">
+              <span id="stack-current">01</span><span class="of"> / <span id="stack-total">00</span></span>
+            </div>
+            <div class="stack-mode">
+              <span class="saved" id="stack-saved-count">0 saved</span>
+              <span id="stack-skipped-count">0 skipped</span>
+            </div>
+          </div>
+          <div class="stack-arena" id="arena"></div>
+          <div class="stack-actions">
+            <button class="swipe-btn skip" id="btn-skip">
+              ← Skip
+            </button>
+            <a class="call-pill" id="btn-call" href="#" aria-label="Call">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z"/></svg>
+            </a>
+            <button class="swipe-btn save" id="btn-save">
+              Save →
+            </button>
+          </div>
+        </div>
+
+        <div id="stack-done" style="display:none">
+          <div class="stack-done">
+            <div class="num" id="done-count">0</div>
+            <div class="label">Saved leads</div>
+            <div class="desc">Tap <strong>Export CSV</strong> below to download. Reset to start over.</div>
+          </div>
+        </div>
+
+        <div style="height: 24px"></div>
+      </div>
+
+    </div>
+
+    <!-- Dock -->
+    <div class="dock">
+      <button class="dock-btn" id="reset">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        Reset
+      </button>
+      <button class="dock-btn primary" id="export" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        Export CSV
+      </button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<script>
+  // ── Clock ────────────────────────────────────────────────
+  function tickClock() {
+    const d = new Date();
+    const h = d.getHours() % 12 || 12;
+    const m = String(d.getMinutes()).padStart(2, "0");
+    document.getElementById("clock").textContent = `${h}:${m}`;
+  }
+  tickClock(); setInterval(tickClock, 30000);
+
+  // ── State ────────────────────────────────────────────────
+  let currentJobId = null;
+  let pollTimer = null;
+  let elapsedTimer = null;
+  let startedAt = null;
+  let allLeads = [];          // everything pulled
+  let stackIndex = 0;         // current card position
+  let savedSet = new Set();   // URLs the user has swiped right on
+  let skippedSet = new Set(); // URLs the user has swiped left on
+
+  const $ = (id) => document.getElementById(id);
+
+  function toast(msg, kind) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.className = "toast show" + (kind ? " " + kind : "");
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove("show"), 2200);
+  }
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  // ── Tab switching ────────────────────────────────────────
+  document.querySelectorAll(".seg").forEach((s) => {
+    s.addEventListener("click", () => switchTab(s.dataset.tab));
+  });
+  function switchTab(name) {
+    document.querySelectorAll(".seg").forEach((s) => {
+      s.classList.toggle("active", s.dataset.tab === name);
+    });
+    document.querySelectorAll(".panel").forEach((p) => {
+      p.classList.toggle("active", p.id === "panel-" + name);
+    });
+    $("body").scrollTop = 0;
+    if (name === "stack") renderStack();
+  }
+
+  // ── Wire up controls ─────────────────────────────────────
+  $("go").addEventListener("click", startScrape);
+  ["f-city", "f-state", "f-price"].forEach((id) => {
+    $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") startScrape(); });
+  });
+  $("reset").addEventListener("click", resetUI);
+  $("export").addEventListener("click", () => {
+    if (!currentJobId) return;
+    // Export only saved leads (the swipe-right set). If user never used the stack,
+    // export everything.
+    const usedStack = savedSet.size > 0 || skippedSet.size > 0;
+    if (usedStack) {
+      window.location.href = `/api/export/${currentJobId}?only=${encodeURIComponent(Array.from(savedSet).join(','))}`;
+    } else {
+      window.location.href = `/api/export/${currentJobId}`;
+    }
+  });
+  $("term-pause").addEventListener("click", togglePause);
+  $("term-stop").addEventListener("click", stopScrape);
+  $("btn-skip").addEventListener("click", () => animateSwipe("left"));
+  $("btn-save").addEventListener("click", () => animateSwipe("right"));
+
+  // ── Scrape lifecycle ─────────────────────────────────────
+  async function startScrape() {
+    const city = $("f-city").value.trim();
+    const state = $("f-state").value.trim().toUpperCase();
+    const beds = $("f-beds").value;
+    const price = $("f-price").value.trim();
+    const pages = $("f-pages").value;
+
+    if (!city) { toast("Enter a city", "error"); $("f-city").focus(); return; }
+    if (!state || state.length !== 2) { toast("Need 2-letter state", "error"); $("f-state").focus(); return; }
+    if (!price || +price <= 0) { toast("Enter max rent", "error"); $("f-price").focus(); return; }
+
+    $("go").disabled = true;
+    $("terminal").style.display = "block";
+    $("term-dot").className = "term-dot";
+    $("term-status").textContent = "INITIALISING";
+    $("term-log").textContent = "spinning up scraper";
+    $("term-bar-fill").style.width = "0%";
+    $("term-n-leads").textContent = "0";
+    $("term-n-phones").textContent = "0";
+    $("term-n-total").textContent = "—";
+    $("term-pause").disabled = false;
+    $("term-pause").classList.remove("resume");
+    $("term-pause-label").textContent = "⏸ Pause";
+    $("term-stop").disabled = false;
+    $("export").disabled = true;
+    allLeads = [];
+    savedSet.clear();
+    skippedSet.clear();
+    stackIndex = 0;
+
+    setTimeout(() => $("terminal").scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+
+    startedAt = Date.now();
+    if (elapsedTimer) clearInterval(elapsedTimer);
+    elapsedTimer = setInterval(() => {
+      const s = Math.floor((Date.now() - startedAt) / 1000);
+      const m = Math.floor(s / 60);
+      $("term-elapsed").textContent = m > 0 ? `${m}m${s % 60}s` : `${s}s`;
+    }, 1000);
+
+    try {
+      const r = await fetch("/api/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          city, state, beds: +beds, max_price: +price,
+          max_pages: pages ? +pages : null,
+        }),
+      });
+      const text = await r.text();
+      if (!text) throw new Error(`Empty response (HTTP ${r.status})`);
+      const data = JSON.parse(text);
+
+      if (r.status === 409 && data.running_job_id) {
+        currentJobId = data.running_job_id;
+        toast("Attached to running job");
+        pollTimer = setInterval(poll, 1500);
+        return;
+      }
+      if (data.error) throw new Error(data.error);
+      currentJobId = data.job_id;
+      pollTimer = setInterval(poll, 1500);
+    } catch (e) {
+      clearInterval(elapsedTimer);
+      $("term-dot").className = "term-dot error";
+      $("term-status").textContent = "FAILED";
+      $("term-log").textContent = e.message;
+      $("go").disabled = false;
+      $("term-pause").disabled = true;
+      $("term-stop").disabled = true;
+      toast(e.message, "error");
+    }
+  }
+
+  async function poll() {
+    if (!currentJobId) return;
+    try {
+      const r = await fetch(`/api/status/${currentJobId}`);
+      const text = await r.text();
+      if (!text) return;
+      const job = JSON.parse(text);
+      renderProgress(job);
+      if (job.status === "done" || job.status === "error") {
+        clearInterval(pollTimer);
+        clearInterval(elapsedTimer);
+        $("go").disabled = false;
+        $("term-pause").disabled = true;
+        $("term-stop").disabled = true;
+        if (job.status === "error") {
+          $("term-dot").className = "term-dot error";
+          $("term-status").textContent = "FAILED";
+          $("term-log").textContent = job.error || "unknown";
+          toast("Hunt failed", "error");
+        } else {
+          $("term-dot").className = "term-dot done";
+          $("term-status").textContent = "COMPLETE";
+          allLeads = job.results || [];
+          $("export").disabled = allLeads.length === 0;
+          toast(`${allLeads.length} leads ready`, "success");
+          // Auto-jump to stack to start swiping
+          setTimeout(() => switchTab("stack"), 700);
+        }
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  function renderProgress(job) {
+    const total = job.total || 0;
+    const scraped = job.scraped || 0;
+    const pct = total > 0 ? Math.min(100, Math.round((scraped / total) * 100))
+              : (job.status === "running" ? 6 : 0);
+    $("term-bar-fill").style.width = pct + "%";
+    $("term-log").textContent = job.stage || "";
+    $("term-n-leads").textContent = scraped;
+    $("term-n-total").textContent = total > 0 ? total : "—";
+
+    allLeads = job.results || [];
+    $("stack-badge").textContent = allLeads.length;
+    let phones = 0;
+    allLeads.forEach((l) => { if (l.phone) phones++; });
+    $("term-n-phones").textContent = phones;
+
+    if (job.status === "paused") {
+      $("term-dot").className = "term-dot paused";
+      $("term-status").textContent = "PAUSED";
+      $("term-pause").classList.add("resume");
+      $("term-pause-label").textContent = "▶ Resume";
+    } else if (job.status === "running") {
+      $("term-dot").className = "term-dot";
+      $("term-status").textContent = scraped > 0 ? `SCRAPING · ${scraped}` : "LOADING";
+      $("term-pause").classList.remove("resume");
+      $("term-pause-label").textContent = "⏸ Pause";
+    }
+  }
+
+  // ── Pause/stop ───────────────────────────────────────────
+  async function sendControl(action) {
+    if (!currentJobId) return;
+    try {
+      await fetch(`/api/control/${currentJobId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+    } catch { toast("Server unreachable", "error"); }
+  }
+  async function togglePause() {
+    const isPaused = $("term-pause").classList.contains("resume");
+    if (isPaused) {
+      await sendControl("resume");
+      toast("Resumed");
+    } else {
+      await sendControl("pause");
+      toast("Pausing after current page");
+    }
+  }
+  async function stopScrape() {
+    if (!confirm("Stop the hunt? Collected leads stay.")) return;
+    await sendControl("stop");
+    toast("Stopping");
+  }
+
+  // ── Card stack rendering + swipe gestures ────────────────
+  function renderStack() {
+    // Build the deck visible state based on current allLeads + savedSet + skippedSet
+    const remaining = allLeads.filter((l, i) =>
+      i >= stackIndex && !savedSet.has(l.url) && !skippedSet.has(l.url)
+    );
+
+    if (allLeads.length === 0) {
+      $("stack-empty").style.display = "block";
+      $("stack-active").style.display = "none";
+      $("stack-done").style.display = "none";
+      return;
+    }
+
+    if (stackIndex >= allLeads.length) {
+      $("stack-empty").style.display = "none";
+      $("stack-active").style.display = "none";
+      $("stack-done").style.display = "block";
+      $("done-count").textContent = savedSet.size;
+      return;
+    }
+
+    $("stack-empty").style.display = "none";
+    $("stack-done").style.display = "none";
+    $("stack-active").style.display = "block";
+
+    $("stack-current").textContent = String(stackIndex + 1).padStart(2, "0");
+    $("stack-total").textContent = String(allLeads.length).padStart(2, "0");
+    $("stack-saved-count").textContent = `${savedSet.size} saved`;
+    $("stack-skipped-count").textContent = `${skippedSet.size} skipped`;
+
+    // Render up to 3 cards stacked, with the top one being interactive
+    const arena = $("arena");
+    arena.innerHTML = "";
+    const upcoming = allLeads.slice(stackIndex, stackIndex + 3).reverse();
+    upcoming.forEach((lead, revIdx) => {
+      const depth = upcoming.length - 1 - revIdx; // 0 = top
+      const card = makeCard(lead, stackIndex + (upcoming.length - 1 - revIdx));
+      // Visual stack effect — back cards are slightly smaller and offset
+      const scale = 1 - (depth * 0.04);
+      const offsetY = depth * 8;
+      card.style.transform = `translateY(${offsetY}px) scale(${scale})`;
+      card.style.zIndex = String(10 - depth);
+      if (depth > 0) {
+        card.style.pointerEvents = "none";
+        card.style.opacity = String(1 - depth * 0.3);
+      } else {
+        attachSwipe(card, lead);
+      }
+      arena.appendChild(card);
+    });
+
+    // Update call button on the action row
+    const top = allLeads[stackIndex];
+    const callBtn = $("btn-call");
+    if (top && top.phone) {
+      callBtn.classList.remove("disabled");
+      callBtn.href = "tel:" + top.phone.replace(/\D/g, "");
+    } else {
+      callBtn.classList.add("disabled");
+      callBtn.href = "#";
+    }
+  }
+
+  function makeCard(lead, idx) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.url = lead.url || "";
+    const idxStr = String(idx + 1).padStart(2, "0");
+    const phoneRaw = lead.phone || "";
+    const phoneBlock = phoneRaw
+      ? `<a class="card-phone" href="tel:${escapeHtml(phoneRaw.replace(/\D/g, ''))}">${escapeHtml(phoneRaw)}</a>`
+      : `<div class="card-phone muted">No phone listed</div>`;
+    card.innerHTML = `
+      <div class="badge save">SAVE</div>
+      <div class="badge skip">SKIP</div>
+
+      <div class="card-top">
+        <div class="card-idx">LEAD ${idxStr} / ${String(allLeads.length).padStart(2,"0")}</div>
+        ${phoneBlock}
+      </div>
+
+      <div class="card-body">
+        <div class="card-name">${escapeHtml(lead.property_name || "Unnamed property")}</div>
+        <div class="card-addr">${escapeHtml(lead.address || "Address not found")}</div>
+      </div>
+
+      <div class="card-bottom">
+        <div class="card-stat">
+          <div class="card-stat-k">Rent</div>
+          <div class="card-stat-v">${escapeHtml(lead.price || "—")}</div>
+        </div>
+        <div class="card-stat">
+          <div class="card-stat-k">Beds</div>
+          <div class="card-stat-v">${escapeHtml(lead.beds || "—")}</div>
+        </div>
+      </div>
+    `;
+    return card;
+  }
+
+  function attachSwipe(card, lead) {
+    let startX = 0, startY = 0, currentX = 0, isDragging = false;
+
+    const start = (e) => {
+      isDragging = true;
+      card.classList.add("dragging");
+      const t = e.touches ? e.touches[0] : e;
+      startX = t.clientX;
+      startY = t.clientY;
+      currentX = 0;
+    };
+    const move = (e) => {
+      if (!isDragging) return;
+      const t = e.touches ? e.touches[0] : e;
+      currentX = t.clientX - startX;
+      const dy = t.clientY - startY;
+      // require mostly horizontal motion
+      if (Math.abs(dy) > Math.abs(currentX) * 1.4 && Math.abs(currentX) < 10) return;
+      const rot = currentX * 0.06;
+      card.style.transform = `translateX(${currentX}px) rotate(${rot}deg)`;
+      card.classList.toggle("show-save", currentX > 50);
+      card.classList.toggle("show-skip", currentX < -50);
+      if (e.cancelable && Math.abs(currentX) > 5) e.preventDefault();
+    };
+    const end = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      card.classList.remove("dragging");
+      const threshold = 90;
+      if (currentX > threshold) {
+        commitSwipe(card, lead, "right");
+      } else if (currentX < -threshold) {
+        commitSwipe(card, lead, "left");
+      } else {
+        card.style.transform = "";
+        card.classList.remove("show-save", "show-skip");
+      }
+    };
+
+    card.addEventListener("mousedown", start);
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", end);
+    card.addEventListener("touchstart", start, { passive: true });
+    card.addEventListener("touchmove", move, { passive: false });
+    card.addEventListener("touchend", end);
+  }
+
+  function animateSwipe(direction) {
+    const arena = $("arena");
+    const topCard = arena.querySelector(".card[style*='z-index: 10']") || arena.lastElementChild;
+    if (!topCard) return;
+    const lead = allLeads[stackIndex];
+    commitSwipe(topCard, lead, direction);
+  }
+
+  function commitSwipe(card, lead, direction) {
+    card.classList.add(direction === "right" ? "swiped-right" : "swiped-left");
+    if (direction === "right") {
+      savedSet.add(lead.url);
+    } else {
+      skippedSet.add(lead.url);
+    }
+    setTimeout(() => {
+      stackIndex++;
+      renderStack();
+    }, 280);
+  }
+
+  // ── Reset ────────────────────────────────────────────────
+  function resetUI() {
+    if (pollTimer) clearInterval(pollTimer);
+    if (elapsedTimer) clearInterval(elapsedTimer);
+    currentJobId = null;
+    allLeads = [];
+    savedSet.clear();
+    skippedSet.clear();
+    stackIndex = 0;
+    $("terminal").style.display = "none";
+    $("stack-badge").textContent = "0";
+    $("export").disabled = true;
+    $("go").disabled = false;
+    renderStack();
+    switchTab("hunt");
+    $("f-city").focus();
+  }
+
+  // initial render
+  renderStack();
+</script>
+</body>
+</html>
